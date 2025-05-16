@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>WIXOSSカード検索</title>
+  <link href="https://unpkg.com/tabulator-tables@5.6.2/dist/css/tabulator.min.css" rel="stylesheet">
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    #search { margin-bottom: 1rem; width: 300px; }
+  </style>
+</head>
+<body>
+
+<h1>WIXOSS カード検索</h1>
+<input type="text" id="search" placeholder="カード名・効果などで検索...">
+<div id="table"></div>
+
+<script src="https://unpkg.com/tabulator-tables@5.6.2/dist/js/tabulator.min.js"></script>
+<script>
+fetch("cards.csv")
+  .then(r => r.text())
+  .then(csv => {
+    const [headerLine, ...lines] = csv.trim().split("\n");
+    const headers = headerLine.split(",");
+    const data = lines.map(line => {
+      const values = line.split(",");
+      return Object.fromEntries(headers.map((h, i) => [h, values[i]]));
+    });
+
+    const table = new Tabulator("#table", {
+      data,
+      layout: "fitDataStretch",
+      columns: headers.map(h => ({ title: h, field: h })),
+    });
+
+    document.getElementById("search").addEventListener("input", e => {
+      const val = e.target.value.toLowerCase();
+      table.setFilter((row) => {
+        return headers.some(h => (row.getData()[h] || "").toLowerCase().includes(val));
+      });
+    });
+  });
+</script>
+
+</body>
+</html>
