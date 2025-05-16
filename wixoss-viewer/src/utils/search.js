@@ -11,7 +11,7 @@ export function filterCards(cards, keywords, fields, useRegex) {
             : value.toLowerCase().includes(kw.toLowerCase());
         });
       } catch (e) {
-        console.error("Invalid regex:", kw);
+        console.error(`${e.name}: ${e.message}`);
         return false;
       }
     })

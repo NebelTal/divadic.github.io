@@ -1,7 +1,5 @@
-// 修正済みのApp.js（デッキ編集機能を含む、filterCards に修正）
 import React, { useState, useEffect } from "react";
 import "./App.css";
-import { filterCards } from "./utils/search";
 
 function App() {
   const [cards, setCards] = useState([]);
@@ -26,7 +24,8 @@ function App() {
     ライフバースト: true,
     使用タイミング: true,
   });
-  const [deck, setDeck] = useState({});
+  const [deckMain, setDeckMain] = useState({});
+  const [deckLrig, setDeckLrig] = useState({});
   const [showMainDeck, setShowMainDeck] = useState(true);
   const [minimized, setMinimized] = useState(false);
 
@@ -55,21 +54,45 @@ function App() {
     使用タイミング: "タイミング",
   };
 
+  const isLrigCard = (type) =>
+    ["ルリグ", "アシストルリグ", "ピース", "アーツ"].includes(type);
+
   useEffect(() => {
     fetch(`${process.env.PUBLIC_URL}/cards.json?t=${Date.now()}`)
       .then((res) => res.json())
       .then((data) => setCards(data));
   }, []);
 
-const handleSearch = () => {
-  const keywords = query
-    .split(" ")
-    .map((kw) => kw.trim())
-    .filter((kw) => kw); // 空文字列除去
-  const result = filterCards(cards, keywords, searchFields, useRegex);
-  setFiltered(result);
-};
+  const handleSearch = () => {
+    const keywords = query.trim().split(/\s+/).filter(Boolean);
+    const activeFields = Object.keys(searchFields).filter((key) => searchFields[key]);
 
+    const result = cards.filter((card) =>
+      keywords.every((kw) => {
+        try {
+          const regex = useRegex ? new RegExp(kw, "i") : null;
+          return activeFields.some((field) => {
+            const value = card[field] || "";
+            return useRegex
+              ? regex.test(value)
+              : value.toLowerCase().includes(kw.toLowerCase());
+          });
+        } catch (e) {
+          console.error("Invalid regex:", kw);
+          return false;
+        }
+      })
+    );
+
+    const seen = new Set();
+    const unique = result.filter((c) => {
+      if (seen.has(c["カード名"])) return false;
+      seen.add(c["カード名"]);
+      return true;
+    });
+
+    setFiltered(unique);
+  };
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter") handleSearch();
@@ -84,9 +107,14 @@ const handleSearch = () => {
   };
 
   const adjustDeck = (cardName, delta, type, lb) => {
+    const isLrig = isLrigCard(type);
+    const setDeck = isLrig ? setDeckLrig : setDeckMain;
+    const deck = isLrig ? deckLrig : deckMain;
+    const maxCount = isLrig ? 1 : 4;
+
     setDeck((prev) => {
       const prevCount = prev[cardName]?.count || 0;
-      const newCount = Math.max(0, prevCount + delta);
+      const newCount = Math.max(0, Math.min(maxCount, prevCount + delta));
       if (newCount === 0) {
         const copy = { ...prev };
         delete copy[cardName];
@@ -99,12 +127,15 @@ const handleSearch = () => {
     });
   };
 
-  const deckEntries = Object.entries(deck);
+  const currentDeck = showMainDeck ? deckMain : deckLrig;
+  const deckEntries = Object.entries(currentDeck);
   const totalCount = deckEntries.reduce((acc, [, v]) => acc + v.count, 0);
   const lbCount = deckEntries.reduce(
-    (acc, [, v]) => acc + (v.ライフバースト?.includes("★") ? v.count : 0),
-    0
-  );
+  (acc, [, v]) =>
+    (v.ライフバースト && v.ライフバースト !== "―") ? acc + v.count : acc,
+  0
+);
+
 
   return (
     <div className="App">
@@ -207,14 +238,16 @@ const handleSearch = () => {
         <div className="deck-header">
           <h3>{showMainDeck ? "現在のメインデッキ" : "現在のルリグデッキ"}</h3>
           <div>
-            <button onClick={() => setShowMainDeck(!showMainDeck)}>ルリグ</button>
+            <button onClick={() => setShowMainDeck(!showMainDeck)}>
+              {showMainDeck ? "ルリグ" : "メイン"}
+            </button>
             <button onClick={() => setMinimized(!minimized)}>
               {minimized ? "＋" : "－"}
             </button>
           </div>
         </div>
         <p>
-          枚数: {totalCount} / LB: {lbCount}
+          枚数: {totalCount} {showMainDeck && `/ LB: ${lbCount}`}
         </p>
         {!minimized && (
           <ul style={{ listStyle: "none", paddingLeft: 0 }}>
@@ -227,7 +260,7 @@ const handleSearch = () => {
                   alignItems: "center",
                 }}
               >
-                <span>{name}</span>
+                <span>{info.ライフバースト?.includes("★") ? "★" : ""}{name}</span>
                 <span
                   style={{
                     marginLeft: "0.5em",
@@ -237,27 +270,17 @@ const handleSearch = () => {
                 >
                   <button
                     onClick={() =>
-                      adjustDeck(
-                        name,
-                        -1,
-                        info.カード種類,
-                        info.ライフバースト
-                      )
+                      adjustDeck(name, -1, info.カード種類, info.ライフバースト)
                     }
                     style={{ marginRight: 4 }}
                   >
                     －
                   </button>
                   <span>×{info.count}</span>
-                  {info.カード種類 !== "ルリグ" && info.count < 4 && (
+                  {!isLrigCard(info.カード種類) && info.count < 4 && (
                     <button
                       onClick={() =>
-                        adjustDeck(
-                          name,
-                          1,
-                          info.カード種類,
-                          info.ライフバースト
-                        )
+                        adjustDeck(name, 1, info.カード種類, info.ライフバースト)
                       }
                       style={{ marginLeft: 4 }}
                     >
