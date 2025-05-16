@@ -139,6 +139,13 @@ function App() {
     0
   );
 
+  const sortedDeckEntries = Object.entries(deck).sort(([aName, aData], [bName, bData]) => {
+    const aHasLB = aData.ライフバースト && aData.ライフバースト !== "―";
+    const bHasLB = bData.ライフバースト && bData.ライフバースト !== "―";
+    if (aHasLB === bHasLB) return 0;
+    return aHasLB ? -1 : 1;
+  });
+
   return (
     <div className="App" style={{ padding: "2rem", fontFamily: "sans-serif", position: "relative" }}>
       <h1>WIXOSS カード検索</h1>
@@ -237,15 +244,16 @@ function App() {
       }}>
         <h3>現在のデッキ</h3>
         <p>枚数: {totalCards} / LB: {totalLB}</p>
-        {Object.keys(deck).length > 0 ? (
+        {sortedDeckEntries.length > 0 ? (
           <ul style={{ listStyle: "none", paddingLeft: 0 }}>
-            {Object.entries(deck).map(([name, data]) => (
+            {sortedDeckEntries.map(([name, data]) => (
               <li
                 key={name}
                 onClick={() => removeFromDeck(name)}
-                style={{ cursor: "pointer" }}
+                style={{ cursor: "pointer", display: "flex", justifyContent: "space-between" }}
               >
-                {data.ライフバースト !== "―" ? "★" : ""}{name} ×{data.count} ({data.ライフバースト !== "―" ? "LB" : "―"}, {data.カード種類})
+                <span>{data.ライフバースト !== "―" ? "★" : ""}{name}</span>
+                <span style={{ marginLeft: "0.5em" }}>×{data.count}</span>
               </li>
             ))}
           </ul>
