@@ -6,7 +6,9 @@ function App() {
   const [filtered, setFiltered] = useState([]);
   const [query, setQuery] = useState("");
   const [useRegex, setUseRegex] = useState(false);
-  const [deck, setDeck] = useState({});
+  const [deckMain, setDeckMain] = useState({});
+  const [deckLrig, setDeckLrig] = useState({});
+  const [showMainDeck, setShowMainDeck] = useState(true);
   const [searchFields, setSearchFields] = useState({
     カード名: true,
     効果テキスト: true,
@@ -106,33 +108,35 @@ function App() {
   };
 
   const addToDeck = (card) => {
-    setDeck((prev) => {
-      const name = card["カード名"];
-      const count = prev[name]?.count || 0;
-      if (count >= 4) return prev;
-      return {
-        ...prev,
-        [name]: {
-          count: count + 1,
-          ライフバースト: card["ライフバースト"],
-          カード種類: card["カード種類"]
-        },
-      };
+    const isLrigDeckCard = ["ルリグ", "アシストルリグ", "ピース", "アーツ"].includes(card["カード種類"]);
+    const setDeck = isLrigDeckCard ? setDeckLrig : setDeckMain;
+    const deck = isLrigDeckCard ? deckLrig : deckMain;
+    const name = card["カード名"];
+    const count = deck[name]?.count || 0;
+    if (count >= 4) return;
+    setDeck({
+      ...deck,
+      [name]: {
+        count: count + 1,
+        ライフバースト: card["ライフバースト"],
+        カード種類: card["カード種類"]
+      },
     });
   };
 
-  const removeFromDeck = (name) => {
-    setDeck((prev) => {
-      const updated = { ...prev };
-      if (updated[name].count > 1) {
-        updated[name].count--;
-      } else {
-        delete updated[name];
-      }
-      return updated;
-    });
+  const removeFromDeck = (name, isMain = true) => {
+    const setDeck = isMain ? setDeckMain : setDeckLrig;
+    const deck = isMain ? deckMain : deckLrig;
+    const updated = { ...deck };
+    if (updated[name].count > 1) {
+      updated[name].count--;
+    } else {
+      delete updated[name];
+    }
+    setDeck(updated);
   };
 
+  const deck = showMainDeck ? deckMain : deckLrig;
   const totalCards = Object.values(deck).reduce((sum, item) => sum + item.count, 0);
   const totalLB = Object.values(deck).reduce(
     (sum, item) => sum + (item.ライフバースト && item.ライフバースト !== "―" ? item.count : 0),
@@ -229,7 +233,6 @@ function App() {
         </table>
       )}
 
-      {/* Deck Modal - Always visible */}
       <div style={{
         position: "fixed",
         bottom: "20px",
@@ -242,14 +245,19 @@ function App() {
         boxShadow: "0 0 10px rgba(0,0,0,0.2)",
         textAlign: "left"
       }}>
-        <h3>現在のデッキ</h3>
+        <h3 style={{ display: "flex", justifyContent: "space-between" }}>
+          現在の{showMainDeck ? "メインデッキ" : "ルリグデッキ"}
+          <button onClick={() => setShowMainDeck(!showMainDeck)}>
+            切替
+          </button>
+        </h3>
         <p>枚数: {totalCards} / LB: {totalLB}</p>
         {sortedDeckEntries.length > 0 ? (
           <ul style={{ listStyle: "none", paddingLeft: 0 }}>
             {sortedDeckEntries.map(([name, data]) => (
               <li
                 key={name}
-                onClick={() => removeFromDeck(name)}
+                onClick={() => removeFromDeck(name, showMainDeck)}
                 style={{ cursor: "pointer", display: "flex", justifyContent: "space-between" }}
               >
                 <span>{data.ライフバースト !== "―" ? "★" : ""}{name}</span>
