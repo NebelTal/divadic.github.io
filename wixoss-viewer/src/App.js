@@ -127,7 +127,17 @@ function App() {
           <tbody>
             {filtered.map((card, i) => (
               <tr key={i}>
-                <td>{card["カード名"]}</td>
+                <td>
+                  {card["カード名"]} {" "}
+                  <a
+                    href={`https://www.takaratomy.co.jp/products/wixoss/library/card/card_detail.php?card_no=${card["カード番号"]}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ marginLeft: "0.3em", fontSize: "0.8em" }}
+                  >
+                    ❔
+                  </a>
+                </td>
                 {Object.entries(card)
                   .filter(([key]) => key !== "カード番号" && key !== "カード名" && displayFields[key])
                   .map(([_, val], j) => (
