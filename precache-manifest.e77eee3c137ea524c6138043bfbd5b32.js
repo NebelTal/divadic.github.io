@@ -1,10 +1,10 @@
 self.__precacheManifest = (self.__precacheManifest || []).concat([
   {
-    "revision": "ecdf0393dd391bc2614db098fb43c431",
+    "revision": "08f52af1a97b8c46e62862642cbda988",
     "url": "/divadic.github.io/index.html"
   },
   {
-    "revision": "c32342a5f9a9eb8bbfbb",
+    "revision": "919ae3f6d1940457ac89",
     "url": "/divadic.github.io/static/css/main.435d5fe5.chunk.css"
   },
   {
@@ -16,8 +16,8 @@ self.__precacheManifest = (self.__precacheManifest || []).concat([
     "url": "/divadic.github.io/static/js/3.ba8b7f13.chunk.js"
   },
   {
-    "revision": "c32342a5f9a9eb8bbfbb",
-    "url": "/divadic.github.io/static/js/main.049ceb46.chunk.js"
+    "revision": "919ae3f6d1940457ac89",
+    "url": "/divadic.github.io/static/js/main.296737f7.chunk.js"
   },
   {
     "revision": "f396aa9b8b8f94f249b1",
