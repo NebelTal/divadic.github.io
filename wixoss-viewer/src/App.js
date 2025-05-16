@@ -13,6 +13,17 @@ function App() {
     カード種類: false,
     カードタイプ: false,
   });
+  const displayOrder = [
+    "効果テキスト",
+    "ライフバースト",
+    "カード種類",
+    "カードタイプ",
+    "色",
+    "レベル",
+    "コスト",
+    "パワー",
+    "使用タイミング"
+  ];
   const [displayFields, setDisplayFields] = useState({
     効果テキスト: true,
     ライフバースト: true,
@@ -128,7 +139,7 @@ function App() {
 
       <div style={{ marginBottom: "1rem" }}>
         <strong>表示項目:</strong>
-        {Object.keys(displayFields).map((field) => (
+        {displayOrder.map((field) => (
           <label key={field} style={{ marginRight: "1em" }}>
             <input
               type="checkbox"
@@ -147,11 +158,9 @@ function App() {
           <thead>
             <tr>
               <th>カード名</th>
-              {Object.keys(filtered[0])
-                .filter((key) => key !== "カード番号" && key !== "カード名" && displayFields[key])
-                .map((key, i) => (
-                  <th key={i}>{fieldLabels[key] || key}</th>
-                ))}
+              {displayOrder.filter((key) => displayFields[key]).map((key, i) => (
+                <th key={i}>{fieldLabels[key] || key}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -168,11 +177,9 @@ function App() {
                     ❔
                   </a>
                 </td>
-                {Object.entries(card)
-                  .filter(([key]) => key !== "カード番号" && key !== "カード名" && displayFields[key])
-                  .map(([key, val], j) => (
-                    <td key={j}>{val}</td>
-                  ))}
+                {displayOrder.filter((key) => displayFields[key]).map((key, j) => (
+                  <td key={j}>{card[key]}</td>
+                ))}
               </tr>
             ))}
           </tbody>
