@@ -11,38 +11,51 @@ function App() {
   const [showMainDeck, setShowMainDeck] = useState(true);
   const [minimized, setMinimized] = useState(false);
 
-  const addToDeck = (card) => {
-    const isLrigDeckCard = ["ルリグ", "アシストルリグ", "ピース", "アーツ"].includes(card["カード種類"]);
-    const setDeck = isLrigDeckCard ? setDeckLrig : setDeckMain;
-    const deck = isLrigDeckCard ? deckLrig : deckMain;
-    const name = card["カード名"];
-    const count = deck[name]?.count || 0;
+  const fieldList = ["カード名", "効果テキスト", "ライフバースト", "カード種類", "カードタイプ"];
+  const [searchFields, setSearchFields] = useState({
+    カード名: true,
+    効果テキスト: true,
+    ライフバースト: false,
+    カード種類: false,
+    カードタイプ: false,
+  });
 
-    if (isLrigDeckCard && count >= 1) return;
-    if (!isLrigDeckCard && count >= 4) return;
+  useEffect(() => {
+    fetch(`${process.env.PUBLIC_URL}/cards.json?t=${Date.now()}`)
+      .then((res) => res.json())
+      .then((data) => setCards(data));
+  }, []);
 
-    setDeck({
-      ...deck,
-      [name]: {
-        count: count + 1,
-        ライフバースト: card["ライフバースト"],
-        カード種類: card["カード種類"]
-      },
+  const handleSearch = () => {
+    const keywords = query.trim().split(/\s+/).filter(Boolean);
+    const activeFields = fieldList.filter((field) => searchFields[field]);
+
+    const result = cards.filter((card) =>
+      keywords.every((kw) => {
+        try {
+          const regex = useRegex ? new RegExp(kw, "i") : null;
+          return activeFields.some((field) => {
+            const value = card[field] || "";
+            return useRegex
+              ? regex.test(value)
+              : value.toLowerCase().includes(kw.toLowerCase());
+          });
+        } catch (e) {
+          console.error("Invalid regex:", kw);
+          return false;
+        }
+      })
+    );
+
+    const seen = new Set();
+    const unique = result.filter((c) => {
+      if (seen.has(c["カード名"])) return false;
+      seen.add(c["カード名"]);
+      return true;
     });
-  };
 
-  const adjustMainDeck = (name, delta) => {
-    setDeckMain((prev) => {
-      const updated = { ...prev };
-      const count = updated[name]?.count || 0;
-      const newCount = count + delta;
-      if (newCount > 0 && newCount <= 4) {
-        updated[name].count = newCount;
-      } else if (newCount <= 0) {
-        delete updated[name];
-      }
-      return updated;
-    });
+    console.log("検索結果のカード番号:", unique.map(c => c["カード番号"]));
+    setFiltered(unique);
   };
 
   const deck = showMainDeck ? deckMain : deckLrig;
@@ -69,32 +82,7 @@ function App() {
           onChange={(e) => setQuery(e.target.value)}
           style={{ margin: "10px", padding: "5px", width: "80%" }}
         />
-        <button
-          onClick={() => {
-            try {
-              const terms = query.trim().split(/\s+/);
-              const filteredCards = cards.filter((card) => {
-                return terms.every(term => {
-                  const regex = useRegex
-                    ? new RegExp(term)
-                    : new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-                  return (
-                    regex.test(card["カード名"]) ||
-                    regex.test(card["効果テキスト"]) ||
-                    regex.test(card["ライフバースト"]) ||
-                    regex.test(card["カード種類"]) ||
-                    regex.test(card["カードタイプ"])
-                  );
-                });
-              });
-              setFiltered(filteredCards);
-            } catch (e) {
-              console.error("正規表現エラー:", e);
-              setFiltered([]);
-            }
-          }}
-          style={{ padding: "6px 12px", marginBottom: "10px" }}
-        >
+        <button onClick={handleSearch} style={{ padding: "6px 12px", marginBottom: "10px" }}>
           検索
         </button>
         <label style={{ marginLeft: "10px" }}>
@@ -104,6 +92,18 @@ function App() {
             onChange={() => setUseRegex(!useRegex)}
           /> 正規表現
         </label>
+        <div style={{ margin: "10px 0" }}>
+          <strong>検索対象:</strong>
+          {fieldList.map((field) => (
+            <label key={field} style={{ marginLeft: "10px" }}>
+              <input
+                type="checkbox"
+                checked={searchFields[field]}
+                onChange={() => setSearchFields({ ...searchFields, [field]: !searchFields[field] })}
+              /> {field}
+            </label>
+          ))}
+        </div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
