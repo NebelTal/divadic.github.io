@@ -28,6 +28,9 @@ function App() {
   const [deckLrig, setDeckLrig] = useState({});
   const [showMainDeck, setShowMainDeck] = useState(true);
   const [minimized, setMinimized] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [outputText, setOutputText] = useState("");
+
 
   const displayOrder = [
     "カード種類",
@@ -102,6 +105,29 @@ function App() {
     setSearchFields((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
+  const handleOutputClick = () => {
+    const getCardNumbers = (deck) =>
+     Object.entries(deck).flatMap(([name, info]) =>
+        Array(info.count).fill(
+         cards.find((c) => c["カード名"] === name)?.["カード番号"] || "UNKNOWN"
+       )
+      );
+
+    const lrigList = getCardNumbers(deckLrig);
+
+    const mainList = Object.entries(deckMain);
+    const lbCards = mainList.filter(([, info]) => info.ライフバースト && info.ライフバースト !== "―");
+    const nonLbCards = mainList.filter(([, info]) => !info.ライフバースト || info.ライフバースト === "―");
+
+    const lbList = getCardNumbers(Object.fromEntries(lbCards));
+    const nonLbList = getCardNumbers(Object.fromEntries(nonLbCards));
+
+    const all = [...lrigList, ...lbList, ...nonLbList];
+    setOutputText(all.join("\n"));
+    setShowModal(true);
+  };
+
+
   const toggleDisplayField = (field) => {
     setDisplayFields((prev) => ({ ...prev, [field]: !prev[field] }));
   };
@@ -140,7 +166,6 @@ function App() {
   return (
     <div className="App">
       <div className="header-fixed">
-        <h1>WIXOSS カード検索</h1>
         <input
           type="text"
           placeholder="検索..."
@@ -156,6 +181,9 @@ function App() {
             onChange={() => setUseRegex(!useRegex)}
           /> 正規表現
         </label>
+        <button style={{ marginLeft: "16px" }} onClick={handleOutputClick}>
+        出力
+        </button>
         <div className="field-controls">
           <strong>検索対象:</strong>
           {Object.keys(searchFields).map((field) => (
@@ -246,6 +274,11 @@ function App() {
             </button>
           </div>
         </div>
+        <p style={{ margin: 0, fontSize: "1em" }}>
+        {showMainDeck
+          ? `ルリグデッキ：${Object.values(deckLrig).reduce((acc, v) => acc + v.count, 0)}枚`
+          : `メインデッキ：${Object.values(deckMain).reduce((acc, v) => acc + v.count, 0)}枚`}
+        </p>
         <p>
           枚数: {totalCount} {showMainDeck && `/ LB: ${lbCount}`}
         </p>
@@ -294,6 +327,46 @@ function App() {
           </ul>
         )}
       </div>
+
+{showModal && (
+  <div style={{
+    position: "fixed",
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000
+  }}>
+    <div style={{
+      backgroundColor: "white",
+      padding: "20px",
+      borderRadius: "8px",
+      width: "80%",
+      maxWidth: "500px",
+      position: "relative"
+    }}>
+      <button onClick={() => setShowModal(false)} style={{
+        position: "absolute",
+        top: "10px",
+        right: "10px",
+        background: "none",
+        border: "none",
+        fontSize: "1.2em",
+        cursor: "pointer"
+      }}>×</button>
+      <h3>デッキ出力</h3>
+      <textarea
+        value={outputText}
+        readOnly
+        style={{ width: "100%", height: "300px", whiteSpace: "pre", fontFamily: "monospace" }}
+      />
+    </div>
+  </div>
+)}
+
+
+
     </div>
   );
 }
