@@ -62,7 +62,10 @@ function App() {
   }, []);
 
 const handleSearch = () => {
-  const keywords = query.trim().split(/\s+/); // 空白で分割
+  const keywords = query
+    .split(" ")
+    .map((kw) => kw.trim())
+    .filter((kw) => kw); // 空文字列除去
   const result = filterCards(cards, keywords, searchFields, useRegex);
   setFiltered(result);
 };
