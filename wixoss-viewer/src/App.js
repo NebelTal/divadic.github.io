@@ -30,6 +30,8 @@ function App() {
   const [minimized, setMinimized] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [outputText, setOutputText] = useState("");
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importText, setImportText] = useState("");
 
 
   const displayOrder = [
@@ -127,6 +129,15 @@ function App() {
     setShowModal(true);
   };
 
+  const handleCopy = () => {
+    navigator.clipboard.writeText(outputText)
+    .then(() => {
+      alert("コピーしました！");
+    })
+    .catch(() => {
+      alert("コピーに失敗しました。");
+    });
+  };
 
   const toggleDisplayField = (field) => {
     setDisplayFields((prev) => ({ ...prev, [field]: !prev[field] }));
@@ -184,6 +195,10 @@ function App() {
         <button style={{ marginLeft: "16px" }} onClick={handleOutputClick}>
         出力
         </button>
+          <button style={{ marginLeft: "8px" }} onClick={() => setShowImportModal(true)}>
+  インポート
+</button>
+
         <div className="field-controls">
           <strong>検索対象:</strong>
           {Object.keys(searchFields).map((field) => (
@@ -361,6 +376,91 @@ function App() {
         readOnly
         style={{ width: "100%", height: "300px", whiteSpace: "pre", fontFamily: "monospace" }}
       />
+      <button
+  onClick={handleCopy}
+  style={{
+    marginTop: "10px",
+    padding: "6px 12px",
+    fontSize: "1em",
+    cursor: "pointer"
+  }}
+>
+  コピー
+</button>
+    </div>
+  </div>
+)}
+{showImportModal && (
+  <div style={{
+    position: "fixed",
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000
+  }}>
+    <div style={{
+      backgroundColor: "white",
+      padding: "20px",
+      borderRadius: "8px",
+      width: "80%",
+      maxWidth: "500px",
+      position: "relative"
+    }}>
+      <button onClick={() => setShowImportModal(false)} style={{
+        position: "absolute",
+        top: "10px",
+        right: "10px",
+        background: "none",
+        border: "none",
+        fontSize: "1.2em",
+        cursor: "pointer"
+      }}>×</button>
+      <h3>デッキインポート</h3>
+      <textarea
+        value={importText}
+        onChange={(e) => setImportText(e.target.value)}
+        placeholder="カード番号を1行ずつ貼り付けてください"
+        style={{ width: "100%", height: "300px", whiteSpace: "pre", fontFamily: "monospace" }}
+      />
+      <button
+        onClick={() => {
+          const lines = importText
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean);
+
+          const newMain = {};
+          const newLrig = {};
+
+          for (const cardNumber of lines) {
+            const card = cards.find((c) => c["カード番号"] === cardNumber);
+            if (!card) continue;
+
+            const name = card["カード名"];
+            const isLrig = isLrigCard(card["カード種類"]);
+
+            const target = isLrig ? newLrig : newMain;
+            const max = isLrig ? 1 : 4;
+            const prevCount = target[name]?.count || 0;
+            if (prevCount < max) {
+              target[name] = {
+                count: prevCount + 1,
+                ライフバースト: card["ライフバースト"],
+                カード種類: card["カード種類"]
+              };
+            }
+          }
+
+          setDeckMain(newMain);
+          setDeckLrig(newLrig);
+          setShowImportModal(false);
+        }}
+        style={{ marginTop: "10px", padding: "6px 12px", fontSize: "1em", cursor: "pointer" }}
+      >
+        読み込み
+      </button>
     </div>
   </div>
 )}
