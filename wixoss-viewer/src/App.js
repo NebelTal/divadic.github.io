@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import "./App.css";
-import { filterCards } from "./utils/search"; // ← 分離済みの検索ロジックをインポート
+import { filterCards } from "./utils/search";
 
 function App() {
   const [cards, setCards] = useState([]);
@@ -185,8 +185,22 @@ function App() {
           </thead>
           <tbody>
             {filtered.map((card, index) => (
-              <tr key={index} onClick={() => addToDeck(card)} style={{ cursor: "pointer" }}>
-                <td style={{ border: "1px solid #ccc" }}>{card["カード名"]}</td>
+              <tr key={index}>
+                <td
+                  style={{ border: "1px solid #ccc", cursor: "pointer" }}
+                  onClick={() => addToDeck(card)}
+                >
+                  {card["カード名"]}
+                  <a
+                    href={`https://www.takaratomy.co.jp/products/wixoss/library/card/card_detail.php?card_no=${card["カード番号"]}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ marginLeft: "0.3em", fontSize: "0.8em" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    ❔
+                  </a>
+                </td>
                 {displayOrder.filter(f => displayFields[f]).map((f, j) => (
                   <td key={j} style={{ border: "1px solid #ccc" }}>{card[f]}</td>
                 ))}
@@ -205,7 +219,7 @@ function App() {
         padding: "1em",
         borderRadius: "8px",
         width: "300px",
-        height: minimized ? "auto" : "400px",
+        maxHeight: "90vh",
         overflowY: "auto",
         boxShadow: "0 0 10px rgba(0,0,0,0.2)",
         textAlign: "left"
