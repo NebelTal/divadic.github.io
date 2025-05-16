@@ -107,22 +107,37 @@ function App() {
 
   const addToDeck = (card) => {
     setDeck((prev) => {
-      const key = card["カード名"];
-      return { ...prev, [key]: (prev[key] || 0) + 1 };
+      const name = card["カード名"];
+      const count = prev[name]?.count || 0;
+      if (count >= 4) return prev;
+      return {
+        ...prev,
+        [name]: {
+          count: count + 1,
+          ライフバースト: card["ライフバースト"],
+          カード種類: card["カード種類"]
+        },
+      };
     });
   };
 
   const removeFromDeck = (name) => {
     setDeck((prev) => {
       const updated = { ...prev };
-      if (updated[name] > 1) {
-        updated[name]--;
+      if (updated[name].count > 1) {
+        updated[name].count--;
       } else {
         delete updated[name];
       }
       return updated;
     });
   };
+
+  const totalCards = Object.values(deck).reduce((sum, item) => sum + item.count, 0);
+  const totalLB = Object.values(deck).reduce(
+    (sum, item) => sum + (item.ライフバースト && item.ライフバースト !== "―" ? item.count : 0),
+    0
+  );
 
   return (
     <div className="App" style={{ padding: "2rem", fontFamily: "sans-serif", position: "relative" }}>
@@ -207,33 +222,37 @@ function App() {
         </table>
       )}
 
-      {/* Deck Modal */}
-      {Object.keys(deck).length > 0 && (
-        <div style={{
-          position: "fixed",
-          bottom: "20px",
-          right: "20px",
-          background: "#fff",
-          border: "1px solid #ccc",
-          padding: "1em",
-          borderRadius: "8px",
-          maxWidth: "300px",
-          boxShadow: "0 0 10px rgba(0,0,0,0.2)",
-        }}>
-          <h3>現在のデッキ</h3>
+      {/* Deck Modal - Always visible */}
+      <div style={{
+        position: "fixed",
+        bottom: "20px",
+        right: "20px",
+        background: "#fff",
+        border: "1px solid #ccc",
+        padding: "1em",
+        borderRadius: "8px",
+        maxWidth: "300px",
+        boxShadow: "0 0 10px rgba(0,0,0,0.2)",
+        textAlign: "left"
+      }}>
+        <h3>現在のデッキ</h3>
+        <p>枚数: {totalCards} / LB: {totalLB}</p>
+        {Object.keys(deck).length > 0 ? (
           <ul style={{ listStyle: "none", paddingLeft: 0 }}>
-            {Object.entries(deck).map(([name, count]) => (
+            {Object.entries(deck).map(([name, data]) => (
               <li
                 key={name}
                 onClick={() => removeFromDeck(name)}
                 style={{ cursor: "pointer" }}
               >
-                {name} ×{count}
+                {data.ライフバースト !== "―" ? "★" : ""}{name} ×{data.count} ({data.ライフバースト !== "―" ? "LB" : "―"}, {data.カード種類})
               </li>
             ))}
           </ul>
-        </div>
-      )}
+        ) : (
+          <p>カードが追加されていません。</p>
+        )}
+      </div>
     </div>
   );
 }
