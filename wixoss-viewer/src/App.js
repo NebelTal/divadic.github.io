@@ -6,7 +6,7 @@ function App() {
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    fetch("/cards.json")
+    fetch("cards.json")
       .then(res => res.json())
       .then(data => setCards(data));
   }, []);
