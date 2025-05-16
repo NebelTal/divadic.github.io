@@ -1,3 +1,5 @@
+<!DOCTYPE html>
+<html lang="ja">
 <head>
   <meta charset="UTF-8">
   <title>WIXOSSカード検索</title>
@@ -13,7 +15,7 @@
 <input type="text" id="search" placeholder="カード名・効果などで検索...">
 <div id="table"></div>
 
-<!-- Tabulator本体 -->
+<!-- Tabulator本体（最新版の安定バージョン） -->
 <script src="https://unpkg.com/tabulator-tables@5.5.0/dist/js/tabulator.min.js"></script>
 
 <script>
@@ -41,3 +43,6 @@ fetch("cards.csv")
     });
   });
 </script>
+
+</body>
+</html>
