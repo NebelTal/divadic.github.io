@@ -117,6 +117,14 @@ function App() {
     });
   };
 
+  const removeFromLrigDeck = (name) => {
+    setDeckLrig((prev) => {
+      const updated = { ...prev };
+      delete updated[name];
+      return updated;
+    });
+  };
+
   const deck = showMainDeck ? deckMain : deckLrig;
   const totalCards = Object.values(deck).reduce((sum, item) => sum + item.count, 0);
   const totalLB = Object.values(deck).reduce(
@@ -175,21 +183,21 @@ function App() {
             </label>
           ))}
         </div>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #ccc" }}>
           <thead>
             <tr>
-              <th>カード名</th>
+              <th style={{ border: "1px solid #ccc" }}>カード名</th>
               {displayOrder.filter(f => displayFields[f]).map((f, i) => (
-                <th key={i}>{f}</th>
+                <th key={i} style={{ border: "1px solid #ccc" }}>{f}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.map((card, index) => (
               <tr key={index} onClick={() => addToDeck(card)} style={{ cursor: "pointer" }}>
-                <td>{card["カード名"]}</td>
+                <td style={{ border: "1px solid #ccc" }}>{card["カード名"]}</td>
                 {displayOrder.filter(f => displayFields[f]).map((f, j) => (
-                  <td key={j}>{card[f]}</td>
+                  <td key={j} style={{ border: "1px solid #ccc" }}>{card[f]}</td>
                 ))}
               </tr>
             ))}
@@ -211,49 +219,49 @@ function App() {
         boxShadow: "0 0 10px rgba(0,0,0,0.2)",
         textAlign: "left"
       }}>
-        <h3 style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h3 style={{ margin: 0 }}>
             現在の{showMainDeck ? "メインデッキ" : "ルリグデッキ"}
+          </h3>
+          <div>
             <button onClick={() => setShowMainDeck(!showMainDeck)} style={{ marginLeft: "0.5em" }}>
               {showMainDeck ? "ルリグ" : "メイン"}
             </button>
-          </span>
-          <button onClick={() => setMinimized(!minimized)}>
-            {minimized ? "＋" : "－"}
-          </button>
-        </h3>
+            <button onClick={() => setMinimized(!minimized)} style={{ marginLeft: "0.5em" }}>
+              {minimized ? "＋" : "－"}
+            </button>
+          </div>
+        </div>
+        <p>枚数: {totalCards} {showMainDeck && !minimized && `/ LB: ${totalLB}`}</p>
         {!minimized && (
-          <>
-            {showMainDeck ? (
-              <p>枚数: {totalCards} / LB: {totalLB}</p>
-            ) : (
-              <p>枚数: {totalCards}</p>
-            )}
-            {sortedDeckEntries.length > 0 ? (
-              <ul style={{ listStyle: "none", paddingLeft: 0 }}>
-                {sortedDeckEntries.map(([name, data]) => (
-                  <li
-                    key={name}
-                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                  >
-                    <span>{data.ライフバースト !== "―" ? "★" : ""}{name}</span>
-                    <span style={{ marginLeft: "0.5em", display: "flex", alignItems: "center" }}>
-                      {showMainDeck && (
-                        <>
-                          <button onClick={() => adjustMainDeck(name, -1)} style={{ marginRight: "4px" }}>－</button>
-                          <span>×{data.count}</span>
-                          <button onClick={() => adjustMainDeck(name, 1)} style={{ marginLeft: "4px" }}>＋</button>
-                        </>
-                      )}
-                      {!showMainDeck && <span>×{data.count}</span>}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>カードが追加されていません。</p>
-            )}
-          </>
+          sortedDeckEntries.length > 0 ? (
+            <ul style={{ listStyle: "none", paddingLeft: 0 }}>
+              {sortedDeckEntries.map(([name, data]) => (
+                <li
+                  key={name}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                >
+                  <span>{data.ライフバースト !== "―" ? "★" : ""}{name}</span>
+                  <span style={{ marginLeft: "0.5em", display: "flex", alignItems: "center" }}>
+                    {showMainDeck ? (
+                      <>
+                        <button onClick={() => adjustMainDeck(name, -1)} style={{ marginRight: "4px" }}>－</button>
+                        <span>×{data.count}</span>
+                        <button onClick={() => adjustMainDeck(name, 1)} style={{ marginLeft: "4px" }}>＋</button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => removeFromLrigDeck(name)} style={{ marginRight: "4px" }}>－</button>
+                        <span>×{data.count}</span>
+                      </>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>カードが追加されていません。</p>
+          )
         )}
       </div>
     </div>
