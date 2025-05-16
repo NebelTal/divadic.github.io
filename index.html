@@ -19,30 +19,30 @@
 <script src="https://unpkg.com/tabulator-tables@5.5.0/dist/js/tabulator.min.js"></script>
 
 <script>
-fetch("cards.csv")
-  .then(r => r.text())
-  .then(csv => {
-    const [headerLine, ...lines] = csv.trim().split("\n");
-    const headers = headerLine.split(",");
-    const data = lines.map(line => {
-      const values = line.split(",");
-      return Object.fromEntries(headers.map((h, i) => [h, values[i] || ""]));
-    });
-
-    const table = new Tabulator("#table", {
-      data,
-      layout: "fitDataStretch",
-      columns: headers.map(h => ({ title: h, field: h })),
-    });
-
-    document.getElementById("search").addEventListener("input", e => {
-      const val = e.target.value.toLowerCase();
-      table.setFilter((row) => {
-        return headers.some(h => (row.getData()[h] || "").toLowerCase().includes(val));
+  fetch("cards.csv")
+    .then(r => r.text())
+    .then(csv => {
+      const [headerLine, ...lines] = csv.trim().split("\n");
+      const headers = headerLine.split(",");
+      const data = lines.map(line => {
+        const values = line.split(",");
+        return Object.fromEntries(headers.map((h, i) => [h, values[i] || ""]));
+      });
+  
+      const table = new Tabulator("#table", {
+        data,
+        layout: "fitDataStretch",
+        columns: headers.map(h => ({ title: h, field: h })),
+      });
+  
+      document.getElementById("search").addEventListener("input", e => {
+        const val = e.target.value.toLowerCase();
+        table.setFilter((data) => {
+          return headers.some(h => (data[h] || "").toLowerCase().includes(val));
+        });
       });
     });
-  });
-</script>
+  </script>
 
 </body>
 </html>
