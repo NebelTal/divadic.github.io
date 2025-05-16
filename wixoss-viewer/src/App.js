@@ -286,11 +286,16 @@ function App() {
                     ❔
                   </a>
                 </td>
-                {displayOrder
-                  .filter((key) => displayFields[key])
-                  .map((key) => (
-                    <td key={key}>{card[key]}</td>
-                  ))}
+{displayOrder
+  .filter((key) => displayFields[key])
+  .map((key) => (
+    <td
+      key={key}
+      dangerouslySetInnerHTML={{
+        __html: (card[key] || "").replace(/\n/g, "<br>")
+      }}
+    />
+  ))}
               </tr>
             ))}
           </tbody>
