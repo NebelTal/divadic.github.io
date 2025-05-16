@@ -2,10 +2,11 @@ export function filterCards(cards, keywords, fields, useRegex) {
   const result = cards.filter((card) =>
     keywords.every((kw) => {
       try {
-        const regex = useRegex ? new RegExp(kw, "i") : null;
+        const isRegex = !!useRegex;
+        const regex = isRegex ? new RegExp(kw, "i") : null;
         return fields.some((field) => {
           const value = card[field] || "";
-          return useRegex
+          return isRegex
             ? regex.test(value)
             : value.toLowerCase().includes(kw.toLowerCase());
         });
