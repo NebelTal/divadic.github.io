@@ -5,8 +5,14 @@ function App() {
   const [cards, setCards] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [query, setQuery] = useState("");
+  const [searchFields, setSearchFields] = useState({
+    カード名: true,
+    効果テキスト: true,
+    ライフバースト: false,
+    カード種類: false,
+    カードタイプ: false,
+  });
 
-  // 初回だけデータ読み込み（検索時にフィルタ）
   useEffect(() => {
     fetch(process.env.PUBLIC_URL + "/cards.json")
       .then((res) => res.json())
@@ -15,9 +21,13 @@ function App() {
 
   const handleSearch = () => {
     const q = query.toLowerCase();
+    const activeFields = Object.entries(searchFields)
+      .filter(([_, checked]) => checked)
+      .map(([field]) => field);
+
     const result = cards.filter((card) =>
-      Object.values(card).some((val) =>
-        (val || "").toLowerCase().includes(q)
+      activeFields.some((field) =>
+        (card[field] || "").toLowerCase().includes(q)
       )
     );
     setFiltered(result);
@@ -27,6 +37,10 @@ function App() {
     if (e.key === "Enter") {
       handleSearch();
     }
+  };
+
+  const toggleField = (field) => {
+    setSearchFields({ ...searchFields, [field]: !searchFields[field] });
   };
 
   return (
@@ -40,6 +54,18 @@ function App() {
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={handleKeyDown}
       />
+      <div style={{ marginBottom: "1rem" }}>
+        {Object.keys(searchFields).map((field) => (
+          <label key={field} style={{ marginRight: "1em" }}>
+            <input
+              type="checkbox"
+              checked={searchFields[field]}
+              onChange={() => toggleField(field)}
+            />
+            {field}
+          </label>
+        ))}
+      </div>
       <button onClick={handleSearch}>検索</button>
 
       {filtered.length > 0 && (
