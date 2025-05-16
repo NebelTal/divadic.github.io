@@ -2,7 +2,10 @@
 .App {
   font-family: sans-serif;
   padding: 1em;
+  position: relative;
+  box-sizing: border-box;
 }
+
 
 .header-fixed {
   position: sticky;
@@ -14,7 +17,7 @@
 }
 
 .table-container {
-  max-height: calc(100vh - 300px);
+  max-height: calc(100vh - 200px); /* deck-box の分だけ小さくする */
   overflow-y: auto;
 }
 
@@ -55,4 +58,11 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.5em;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden; /* ← スクロールバーを出さない */
 }
