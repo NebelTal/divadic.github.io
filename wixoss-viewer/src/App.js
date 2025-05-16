@@ -30,7 +30,18 @@ function App() {
         (card[field] || "").toLowerCase().includes(q)
       )
     );
-    setFiltered(result);
+
+    // カード名ごとに重複除外（カード名が同じなら1つだけ表示）
+    const uniqueByCardName = [];
+    const seen = new Set();
+    for (const card of result) {
+      if (!seen.has(card["カード名"])) {
+        seen.add(card["カード名"]);
+        uniqueByCardName.push(card);
+      }
+    }
+
+    setFiltered(uniqueByCardName);
   };
 
   const handleKeyDown = (e) => {
@@ -72,17 +83,21 @@ function App() {
         <table border="1" cellPadding="4">
           <thead>
             <tr>
-              {Object.keys(filtered[0]).map((key, i) => (
-                <th key={i}>{key}</th>
-              ))}
+              {Object.keys(filtered[0])
+                .filter((key) => key !== "カード番号")
+                .map((key, i) => (
+                  <th key={i}>{key}</th>
+                ))}
             </tr>
           </thead>
           <tbody>
             {filtered.map((card, i) => (
               <tr key={i}>
-                {Object.values(card).map((val, j) => (
-                  <td key={j}>{val}</td>
-                ))}
+                {Object.entries(card)
+                  .filter(([key]) => key !== "カード番号")
+                  .map(([_, val], j) => (
+                    <td key={j}>{val}</td>
+                  ))}
               </tr>
             ))}
           </tbody>
