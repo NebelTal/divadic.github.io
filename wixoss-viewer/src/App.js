@@ -31,14 +31,16 @@ function App() {
   }, []);
 
   const handleSearch = () => {
-    const q = query.toLowerCase();
+    const keywords = query.toLowerCase().split(/\s+/).filter(Boolean);
     const activeFields = Object.entries(searchFields)
       .filter(([_, checked]) => checked)
       .map(([field]) => field);
 
     const result = cards.filter((card) =>
-      activeFields.some((field) =>
-        (card[field] || "").toLowerCase().includes(q)
+      keywords.every((keyword) =>
+        activeFields.some((field) =>
+          (card[field] || "").toLowerCase().includes(keyword)
+        )
       )
     );
 
