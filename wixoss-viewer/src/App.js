@@ -43,6 +43,19 @@ function App() {
     使用タイミング: true,
   });
 
+  const fieldLabels = {
+    カード名: "カード名",
+    効果テキスト: "効果テキスト",
+    ライフバースト: "LB",
+    カード種類: "種類",
+    カードタイプ: "タイプ",
+    色: "色",
+    レベル: "Lv",
+    コスト: "コスト",
+    パワー: "パワー",
+    使用タイミング: "タイミング"
+  };
+
   useEffect(() => {
     fetch(`${process.env.PUBLIC_URL}/cards.json?t=${Date.now()}`)
       .then((res) => res.json())
@@ -147,6 +160,7 @@ function App() {
           placeholder="検索..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           style={{ margin: "10px", padding: "5px", width: "80%" }}
         />
         <button onClick={handleSearch} style={{ padding: "6px 12px", marginBottom: "10px" }}>
@@ -167,7 +181,7 @@ function App() {
                 type="checkbox"
                 checked={searchFields[field]}
                 onChange={() => setSearchFields({ ...searchFields, [field]: !searchFields[field] })}
-              /> {field}
+              /> {fieldLabels[field] || field}
             </label>
           ))}
         </div>
@@ -179,16 +193,16 @@ function App() {
                 type="checkbox"
                 checked={displayFields[field]}
                 onChange={() => toggleDisplayField(field)}
-              /> {field}
+              /> {fieldLabels[field] || field}
             </label>
           ))}
         </div>
         <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #ccc" }}>
           <thead>
             <tr>
-              <th style={{ border: "1px solid #ccc" }}>カード名</th>
+              <th style={{ border: "1px solid #ccc" }}>{fieldLabels["カード名"]}</th>
               {displayOrder.filter(f => displayFields[f]).map((f, i) => (
-                <th key={i} style={{ border: "1px solid #ccc" }}>{f}</th>
+                <th key={i} style={{ border: "1px solid #ccc" }}>{fieldLabels[f] || f}</th>
               ))}
             </tr>
           </thead>
@@ -232,7 +246,10 @@ function App() {
             </button>
           </div>
         </div>
-        <p>枚数: {totalCards} {showMainDeck && !minimized && `/ LB: ${totalLB}`}</p>
+        <p>
+          枚数: {totalCards}
+          {showMainDeck && ` / LB: ${totalLB}`}
+        </p>
         {!minimized && (
           sortedDeckEntries.length > 0 ? (
             <ul style={{ listStyle: "none", paddingLeft: 0 }}>
