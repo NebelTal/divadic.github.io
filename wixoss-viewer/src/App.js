@@ -25,6 +25,19 @@ function App() {
     使用タイミング: true,
   });
 
+  const fieldLabels = {
+    カード名: "カード名",
+    効果テキスト: "効果テキスト",
+    ライフバースト: "LB",
+    カード種類: "種類",
+    カードタイプ: "タイプ",
+    色: "色",
+    レベル: "レベル",
+    コスト: "コスト",
+    パワー: "パワー",
+    使用タイミング: "使用タイミング",
+  };
+
   useEffect(() => {
     fetch(`${process.env.PUBLIC_URL}/cards.json?t=${Date.now()}`)
       .then((res) => res.json())
@@ -96,7 +109,7 @@ function App() {
           type="checkbox"
           checked={useRegex}
           onChange={() => setUseRegex(!useRegex)}
-        /> 正規表現を使用
+        /> 正規表現
       </label>
 
       <div style={{ marginBottom: "1rem" }}>
@@ -108,7 +121,7 @@ function App() {
               checked={searchFields[field]}
               onChange={() => toggleField(field)}
             />
-            {field}
+            {fieldLabels[field] || field}
           </label>
         ))}
       </div>
@@ -122,7 +135,7 @@ function App() {
               checked={displayFields[field]}
               onChange={() => toggleDisplayField(field)}
             />
-            {field}
+            {fieldLabels[field] || field}
           </label>
         ))}
       </div>
@@ -137,7 +150,7 @@ function App() {
               {Object.keys(filtered[0])
                 .filter((key) => key !== "カード番号" && key !== "カード名" && displayFields[key])
                 .map((key, i) => (
-                  <th key={i}>{key}</th>
+                  <th key={i}>{fieldLabels[key] || key}</th>
                 ))}
             </tr>
           </thead>
@@ -157,7 +170,7 @@ function App() {
                 </td>
                 {Object.entries(card)
                   .filter(([key]) => key !== "カード番号" && key !== "カード名" && displayFields[key])
-                  .map(([_, val], j) => (
+                  .map(([key, val], j) => (
                     <td key={j}>{val}</td>
                   ))}
               </tr>
