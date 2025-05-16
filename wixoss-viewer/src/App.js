@@ -20,6 +20,29 @@ function App() {
     カードタイプ: false,
   });
 
+  const displayOrder = [
+    "カード種類",
+    "カードタイプ",
+    "色",
+    "レベル",
+    "コスト",
+    "パワー",
+    "効果テキスト",
+    "ライフバースト",
+    "使用タイミング"
+  ];
+  const [displayFields, setDisplayFields] = useState({
+    カード種類: true,
+    カードタイプ: true,
+    色: true,
+    レベル: true,
+    コスト: true,
+    パワー: true,
+    効果テキスト: true,
+    ライフバースト: true,
+    使用タイミング: true,
+  });
+
   useEffect(() => {
     fetch(`${process.env.PUBLIC_URL}/cards.json?t=${Date.now()}`)
       .then((res) => res.json())
@@ -56,6 +79,10 @@ function App() {
 
     console.log("検索結果のカード番号:", unique.map(c => c["カード番号"]));
     setFiltered(unique);
+  };
+
+  const toggleDisplayField = (field) => {
+    setDisplayFields({ ...displayFields, [field]: !displayFields[field] });
   };
 
   const addToDeck = (card) => {
@@ -106,7 +133,7 @@ function App() {
 
   return (
     <div>
-      <div style={{ maxHeight: "70vh", overflowY: "auto" }}>
+      <div style={{ maxHeight: "90vh", overflowY: "auto", padding: "1em" }}>
         <input
           type="text"
           placeholder="検索..."
@@ -136,34 +163,34 @@ function App() {
             </label>
           ))}
         </div>
+        <div style={{ margin: "10px 0" }}>
+          <strong>表示項目:</strong>
+          {displayOrder.map((field) => (
+            <label key={field} style={{ marginLeft: "10px" }}>
+              <input
+                type="checkbox"
+                checked={displayFields[field]}
+                onChange={() => toggleDisplayField(field)}
+              /> {field}
+            </label>
+          ))}
+        </div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
               <th>カード名</th>
-              <th>種類</th>
-              <th>タイプ</th>
-              <th>色</th>
-              <th>Lv</th>
-              <th>コスト</th>
-              <th>パワー</th>
-              <th>効果テキスト</th>
-              <th>LB</th>
-              <th>タイミング</th>
+              {displayOrder.filter(f => displayFields[f]).map((f, i) => (
+                <th key={i}>{f}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {filtered.map((card, index) => (
               <tr key={index} onClick={() => addToDeck(card)} style={{ cursor: "pointer" }}>
                 <td>{card["カード名"]}</td>
-                <td>{card["カード種類"]}</td>
-                <td>{card["カードタイプ"]}</td>
-                <td>{card["色"]}</td>
-                <td>{card["レベル"]}</td>
-                <td>{card["コスト"]}</td>
-                <td>{card["パワー"]}</td>
-                <td>{card["効果テキスト"]}</td>
-                <td>{card["ライフバースト"]}</td>
-                <td>{card["使用タイミング"]}</td>
+                {displayOrder.filter(f => displayFields[f]).map((f, j) => (
+                  <td key={j}>{card[f]}</td>
+                ))}
               </tr>
             ))}
           </tbody>
