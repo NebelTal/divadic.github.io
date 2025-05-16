@@ -1,12 +1,10 @@
-<!DOCTYPE html>
-<html lang="ja">
 <head>
   <meta charset="UTF-8">
   <title>WIXOSSカード検索</title>
-  <link href="https://unpkg.com/tabulator-tables@5.6.2/dist/css/tabulator.min.css" rel="stylesheet">
+  <link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator.min.css" rel="stylesheet">
   <style>
     body { font-family: sans-serif; margin: 2rem; }
-    #search { margin-bottom: 1rem; width: 300px; }
+    #search { margin-bottom: 1rem; width: 300px; padding: 0.3em; font-size: 1em; }
   </style>
 </head>
 <body>
@@ -15,7 +13,9 @@
 <input type="text" id="search" placeholder="カード名・効果などで検索...">
 <div id="table"></div>
 
-<script src="https://unpkg.com/tabulator-tables@5.6.2/dist/js/tabulator.min.js"></script>
+<!-- Tabulator本体 -->
+<script src="https://unpkg.com/tabulator-tables@5.5.0/dist/js/tabulator.min.js"></script>
+
 <script>
 fetch("cards.csv")
   .then(r => r.text())
@@ -24,7 +24,7 @@ fetch("cards.csv")
     const headers = headerLine.split(",");
     const data = lines.map(line => {
       const values = line.split(",");
-      return Object.fromEntries(headers.map((h, i) => [h, values[i]]));
+      return Object.fromEntries(headers.map((h, i) => [h, values[i] || ""]));
     });
 
     const table = new Tabulator("#table", {
@@ -41,6 +41,3 @@ fetch("cards.csv")
     });
   });
 </script>
-
-</body>
-</html>
