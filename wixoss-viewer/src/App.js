@@ -41,6 +41,8 @@ function App() {
       }
     }
 
+    console.log("検索結果のカード番号:", uniqueByCardName.map(c => c["カード番号"]));
+
     setFiltered(uniqueByCardName);
   };
 
