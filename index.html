@@ -37,12 +37,12 @@
   
       document.getElementById("search").addEventListener("input", e => {
         const val = e.target.value.toLowerCase();
-        table.setFilter((data) => {
-          return headers.some(h => (data[h] || "").toLowerCase().includes(val));
+        table.setFilter((rowData) => {
+          return headers.some(h => (rowData[h] || "").toLowerCase().includes(val));
         });
       });
     });
   </script>
-
+  
 </body>
 </html>
