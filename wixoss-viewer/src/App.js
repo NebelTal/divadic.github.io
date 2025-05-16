@@ -62,7 +62,80 @@ function App() {
   return (
     <div>
       <div style={{ maxHeight: "70vh", overflowY: "auto" }}>
-        {/* 検索フォームや検索結果テーブルなどはここに入る */}
+        <input
+          type="text"
+          placeholder="検索..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          style={{ margin: "10px", padding: "5px", width: "80%" }}
+        />
+        <button
+          onClick={() => {
+            try {
+              const terms = query.trim().split(/\s+/);
+              const filteredCards = cards.filter((card) => {
+                return terms.every(term => {
+                  const regex = useRegex
+                    ? new RegExp(term)
+                    : new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+                  return (
+                    regex.test(card["カード名"]) ||
+                    regex.test(card["効果テキスト"]) ||
+                    regex.test(card["ライフバースト"]) ||
+                    regex.test(card["カード種類"]) ||
+                    regex.test(card["カードタイプ"])
+                  );
+                });
+              });
+              setFiltered(filteredCards);
+            } catch (e) {
+              console.error("正規表現エラー:", e);
+              setFiltered([]);
+            }
+          }}
+          style={{ padding: "6px 12px", marginBottom: "10px" }}
+        >
+          検索
+        </button>
+        <label style={{ marginLeft: "10px" }}>
+          <input
+            type="checkbox"
+            checked={useRegex}
+            onChange={() => setUseRegex(!useRegex)}
+          /> 正規表現
+        </label>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th>カード名</th>
+              <th>種類</th>
+              <th>タイプ</th>
+              <th>色</th>
+              <th>Lv</th>
+              <th>コスト</th>
+              <th>パワー</th>
+              <th>効果テキスト</th>
+              <th>LB</th>
+              <th>タイミング</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((card, index) => (
+              <tr key={index} onClick={() => addToDeck(card)} style={{ cursor: "pointer" }}>
+                <td>{card["カード名"]}</td>
+                <td>{card["カード種類"]}</td>
+                <td>{card["カードタイプ"]}</td>
+                <td>{card["色"]}</td>
+                <td>{card["レベル"]}</td>
+                <td>{card["コスト"]}</td>
+                <td>{card["パワー"]}</td>
+                <td>{card["効果テキスト"]}</td>
+                <td>{card["ライフバースト"]}</td>
+                <td>{card["使用タイミング"]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       <div style={{
