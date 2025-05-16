@@ -6,6 +6,7 @@ function App() {
   const [filtered, setFiltered] = useState([]);
   const [query, setQuery] = useState("");
   const [useRegex, setUseRegex] = useState(false);
+  const [deck, setDeck] = useState({});
   const [searchFields, setSearchFields] = useState({
     カード名: true,
     効果テキスト: true,
@@ -104,8 +105,27 @@ function App() {
     setDisplayFields({ ...displayFields, [field]: !displayFields[field] });
   };
 
+  const addToDeck = (card) => {
+    setDeck((prev) => {
+      const key = card["カード名"];
+      return { ...prev, [key]: (prev[key] || 0) + 1 };
+    });
+  };
+
+  const removeFromDeck = (name) => {
+    setDeck((prev) => {
+      const updated = { ...prev };
+      if (updated[name] > 1) {
+        updated[name]--;
+      } else {
+        delete updated[name];
+      }
+      return updated;
+    });
+  };
+
   return (
-    <div className="App" style={{ padding: "2rem", fontFamily: "sans-serif" }}>
+    <div className="App" style={{ padding: "2rem", fontFamily: "sans-serif", position: "relative" }}>
       <h1>WIXOSS カード検索</h1>
       <input
         style={{ marginBottom: "1rem", padding: "0.5em", width: "300px" }}
@@ -166,13 +186,14 @@ function App() {
           <tbody>
             {filtered.map((card, i) => (
               <tr key={i}>
-                <td>
+                <td onClick={() => addToDeck(card)} style={{ cursor: "pointer" }}>
                   {card["カード名"]} {" "}
                   <a
                     href={`https://www.takaratomy.co.jp/products/wixoss/library/card/card_detail.php?card_no=${card["カード番号"]}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ marginLeft: "0.3em", fontSize: "0.8em" }}
+                    onClick={(e) => e.stopPropagation()}
                   >
                     ❔
                   </a>
@@ -184,6 +205,34 @@ function App() {
             ))}
           </tbody>
         </table>
+      )}
+
+      {/* Deck Modal */}
+      {Object.keys(deck).length > 0 && (
+        <div style={{
+          position: "fixed",
+          bottom: "20px",
+          right: "20px",
+          background: "#fff",
+          border: "1px solid #ccc",
+          padding: "1em",
+          borderRadius: "8px",
+          maxWidth: "300px",
+          boxShadow: "0 0 10px rgba(0,0,0,0.2)",
+        }}>
+          <h3>現在のデッキ</h3>
+          <ul style={{ listStyle: "none", paddingLeft: 0 }}>
+            {Object.entries(deck).map(([name, count]) => (
+              <li
+                key={name}
+                onClick={() => removeFromDeck(name)}
+                style={{ cursor: "pointer" }}
+              >
+                {name} ×{count}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );
