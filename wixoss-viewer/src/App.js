@@ -131,7 +131,7 @@ function App() {
 
   return (
     <div>
-      <div style={{ maxHeight: "90vh", overflowY: "auto", padding: "1em" }}>
+      <div style={{ padding: "1em" }}>
         <input
           type="text"
           placeholder="検索..."
