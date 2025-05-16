@@ -14,7 +14,7 @@ function App() {
   });
 
   useEffect(() => {
-    fetch(process.env.PUBLIC_URL + "/cards.json")
+    fetch(`${process.env.PUBLIC_URL}/cards.json?t=${Date.now()}`)
       .then((res) => res.json())
       .then((data) => setCards(data));
   }, []);
