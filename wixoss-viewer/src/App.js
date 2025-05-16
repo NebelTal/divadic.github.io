@@ -1,7 +1,7 @@
-// 修正済みのApp.js（デッキ編集機能を含む）
+// 修正済みのApp.js（デッキ編集機能を含む、filterCards に修正）
 import React, { useState, useEffect } from "react";
 import "./App.css";
-import { searchCards } from "./utils/search";
+import { filterCards } from "./utils/search";
 
 function App() {
   const [cards, setCards] = useState([]);
@@ -39,7 +39,7 @@ function App() {
     "パワー",
     "効果テキスト",
     "ライフバースト",
-    "使用タイミング"
+    "使用タイミング",
   ];
 
   const fieldLabels = {
@@ -61,10 +61,12 @@ function App() {
       .then((data) => setCards(data));
   }, []);
 
-  const handleSearch = () => {
-    const result = searchCards(cards, query, searchFields, useRegex);
-    setFiltered(result);
-  };
+const handleSearch = () => {
+  const keywords = query.trim().split(/\s+/); // 空白で分割
+  const result = filterCards(cards, keywords, searchFields, useRegex);
+  setFiltered(result);
+};
+
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter") handleSearch();
@@ -96,7 +98,10 @@ function App() {
 
   const deckEntries = Object.entries(deck);
   const totalCount = deckEntries.reduce((acc, [, v]) => acc + v.count, 0);
-  const lbCount = deckEntries.reduce((acc, [, v]) => acc + (v.ライフバースト?.includes("★") ? v.count : 0), 0);
+  const lbCount = deckEntries.reduce(
+    (acc, [, v]) => acc + (v.ライフバースト?.includes("★") ? v.count : 0),
+    0
+  );
 
   return (
     <div className="App">
@@ -145,9 +150,11 @@ function App() {
           <thead>
             <tr>
               <th>カード名</th>
-              {displayOrder.filter((key) => displayFields[key]).map((key) => (
-                <th key={key}>{fieldLabels[key]}</th>
-              ))}
+              {displayOrder
+                .filter((key) => displayFields[key])
+                .map((key) => (
+                  <th key={key}>{fieldLabels[key]}</th>
+                ))}
             </tr>
           </thead>
         </table>
@@ -161,7 +168,14 @@ function App() {
                 <td>
                   <span
                     style={{ cursor: "pointer" }}
-                    onClick={() => adjustDeck(card["カード名"], 1, card["カード種類"], card["ライフバースト"]) }
+                    onClick={() =>
+                      adjustDeck(
+                        card["カード名"],
+                        1,
+                        card["カード種類"],
+                        card["ライフバースト"]
+                      )
+                    }
                   >
                     {card["カード名"]}
                   </span>
@@ -175,9 +189,11 @@ function App() {
                     ❔
                   </a>
                 </td>
-                {displayOrder.filter((key) => displayFields[key]).map((key) => (
-                  <td key={key}>{card[key]}</td>
-                ))}
+                {displayOrder
+                  .filter((key) => displayFields[key])
+                  .map((key) => (
+                    <td key={key}>{card[key]}</td>
+                  ))}
               </tr>
             ))}
           </tbody>
@@ -189,20 +205,61 @@ function App() {
           <h3>{showMainDeck ? "現在のメインデッキ" : "現在のルリグデッキ"}</h3>
           <div>
             <button onClick={() => setShowMainDeck(!showMainDeck)}>ルリグ</button>
-            <button onClick={() => setMinimized(!minimized)}>{minimized ? "＋" : "－"}</button>
+            <button onClick={() => setMinimized(!minimized)}>
+              {minimized ? "＋" : "－"}
+            </button>
           </div>
         </div>
-        <p>枚数: {totalCount} / LB: {lbCount}</p>
+        <p>
+          枚数: {totalCount} / LB: {lbCount}
+        </p>
         {!minimized && (
           <ul style={{ listStyle: "none", paddingLeft: 0 }}>
             {deckEntries.map(([name, info]) => (
-              <li key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <li
+                key={name}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
                 <span>{name}</span>
-                <span style={{ marginLeft: "0.5em", display: "flex", alignItems: "center" }}>
-                  <button onClick={() => adjustDeck(name, -1, info.カード種類, info.ライフバースト)} style={{ marginRight: 4 }}>－</button>
+                <span
+                  style={{
+                    marginLeft: "0.5em",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <button
+                    onClick={() =>
+                      adjustDeck(
+                        name,
+                        -1,
+                        info.カード種類,
+                        info.ライフバースト
+                      )
+                    }
+                    style={{ marginRight: 4 }}
+                  >
+                    －
+                  </button>
                   <span>×{info.count}</span>
                   {info.カード種類 !== "ルリグ" && info.count < 4 && (
-                    <button onClick={() => adjustDeck(name, 1, info.カード種類, info.ライフバースト)} style={{ marginLeft: 4 }}>＋</button>
+                    <button
+                      onClick={() =>
+                        adjustDeck(
+                          name,
+                          1,
+                          info.カード種類,
+                          info.ライフバースト
+                        )
+                      }
+                      style={{ marginLeft: 4 }}
+                    >
+                      ＋
+                    </button>
                   )}
                 </span>
               </li>
