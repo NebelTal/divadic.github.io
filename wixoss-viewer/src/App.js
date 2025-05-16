@@ -58,6 +58,38 @@ function App() {
     setFiltered(unique);
   };
 
+  const addToDeck = (card) => {
+    const isLrigDeckCard = ["ルリグ", "アシストルリグ", "ピース", "アーツ"].includes(card["カード種類"]);
+    const setDeck = isLrigDeckCard ? setDeckLrig : setDeckMain;
+    const deck = isLrigDeckCard ? deckLrig : deckMain;
+    const name = card["カード名"];
+    const count = deck[name]?.count || 0;
+    if (isLrigDeckCard && count >= 1) return;
+    if (!isLrigDeckCard && count >= 4) return;
+    setDeck({
+      ...deck,
+      [name]: {
+        count: count + 1,
+        ライフバースト: card["ライフバースト"],
+        カード種類: card["カード種類"]
+      },
+    });
+  };
+
+  const adjustMainDeck = (name, delta) => {
+    setDeckMain((prev) => {
+      const updated = { ...prev };
+      const count = updated[name]?.count || 0;
+      const newCount = count + delta;
+      if (newCount > 0 && newCount <= 4) {
+        updated[name].count = newCount;
+      } else if (newCount <= 0) {
+        delete updated[name];
+      }
+      return updated;
+    });
+  };
+
   const deck = showMainDeck ? deckMain : deckLrig;
   const totalCards = Object.values(deck).reduce((sum, item) => sum + item.count, 0);
   const totalLB = Object.values(deck).reduce(
