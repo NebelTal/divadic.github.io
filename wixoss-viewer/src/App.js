@@ -5,6 +5,7 @@ function App() {
   const [cards, setCards] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [query, setQuery] = useState("");
+  const [useRegex, setUseRegex] = useState(false);
   const [searchFields, setSearchFields] = useState({
     カード名: true,
     効果テキスト: true,
@@ -31,17 +32,24 @@ function App() {
   }, []);
 
   const handleSearch = () => {
-    const keywords = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const keywords = query.split(/\s+/).filter(Boolean);
     const activeFields = Object.entries(searchFields)
       .filter(([_, checked]) => checked)
       .map(([field]) => field);
 
     const result = cards.filter((card) =>
-      keywords.every((keyword) =>
-        activeFields.some((field) =>
-          (card[field] || "").toLowerCase().includes(keyword)
-        )
-      )
+      keywords.every((keyword) => {
+        try {
+          const pattern = useRegex ? new RegExp(keyword, "i") : null;
+          return activeFields.some((field) => {
+            const text = card[field] || "";
+            return useRegex ? pattern.test(text) : text.toLowerCase().includes(keyword.toLowerCase());
+          });
+        } catch (e) {
+          console.error("Invalid regex:", keyword);
+          return false;
+        }
+      })
     );
 
     const uniqueByCardName = [];
@@ -83,6 +91,13 @@ function App() {
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={handleKeyDown}
       />
+      <label style={{ marginLeft: "1em" }}>
+        <input
+          type="checkbox"
+          checked={useRegex}
+          onChange={() => setUseRegex(!useRegex)}
+        /> 正規表現を使用
+      </label>
 
       <div style={{ marginBottom: "1rem" }}>
         <strong>検索対象:</strong>
