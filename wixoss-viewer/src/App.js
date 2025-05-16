@@ -129,6 +129,23 @@ function App() {
     setShowModal(true);
   };
 
+  const handleAddSaba = () => {
+    const card = cards.find((c) => c["カード番号"] === "WXDi-D03-020");
+    if (!card) {
+      alert("カード WXDi-D03-020 が見つかりませんでした。");
+      return;
+    }
+
+    setDeckMain((prev) => ({
+      ...prev,
+      [card["カード名"]]: {
+        count: 4,
+        ライフバースト: card["ライフバースト"],
+        カード種類: card["カード種類"]
+      }
+    }));
+  };
+
   const handleCopy = () => {
     navigator.clipboard.writeText(outputText)
     .then(() => {
@@ -192,6 +209,9 @@ function App() {
             onChange={() => setUseRegex(!useRegex)}
           /> 正規表現
         </label>
+<button style={{ marginLeft: "16px" }} onClick={handleAddSaba}>
+  鯖＃
+</button>
         <button style={{ marginLeft: "16px" }} onClick={handleOutputClick}>
         出力
         </button>
