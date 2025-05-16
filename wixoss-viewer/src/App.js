@@ -1,18 +1,13 @@
+// 修正済みのApp.js（デッキ編集機能を含む）
 import React, { useState, useEffect } from "react";
 import "./App.css";
-import { filterCards } from "./utils/search";
+import { searchCards } from "./utils/search";
 
 function App() {
   const [cards, setCards] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [query, setQuery] = useState("");
   const [useRegex, setUseRegex] = useState(false);
-  const [deckMain, setDeckMain] = useState({});
-  const [deckLrig, setDeckLrig] = useState({});
-  const [showMainDeck, setShowMainDeck] = useState(true);
-  const [minimized, setMinimized] = useState(false);
-
-  const fieldList = ["カード名", "効果テキスト", "ライフバースト", "カード種類", "カードタイプ"];
   const [searchFields, setSearchFields] = useState({
     カード名: true,
     効果テキスト: true,
@@ -20,6 +15,20 @@ function App() {
     カード種類: false,
     カードタイプ: false,
   });
+  const [displayFields, setDisplayFields] = useState({
+    カード種類: true,
+    カードタイプ: true,
+    色: true,
+    レベル: true,
+    コスト: true,
+    パワー: true,
+    効果テキスト: true,
+    ライフバースト: true,
+    使用タイミング: true,
+  });
+  const [deck, setDeck] = useState({});
+  const [showMainDeck, setShowMainDeck] = useState(true);
+  const [minimized, setMinimized] = useState(false);
 
   const displayOrder = [
     "カード種類",
@@ -32,17 +41,6 @@ function App() {
     "ライフバースト",
     "使用タイミング"
   ];
-  const [displayFields, setDisplayFields] = useState({
-    カード種類: true,
-    カードタイプ: true,
-    色: true,
-    レベル: true,
-    コスト: true,
-    パワー: true,
-    効果テキスト: true,
-    ライフバースト: true,
-    使用タイミング: true,
-  });
 
   const fieldLabels = {
     カード名: "カード名",
@@ -54,7 +52,7 @@ function App() {
     レベル: "Lv",
     コスト: "コスト",
     パワー: "パワー",
-    使用タイミング: "タイミング"
+    使用タイミング: "タイミング",
   };
 
   useEffect(() => {
@@ -64,85 +62,54 @@ function App() {
   }, []);
 
   const handleSearch = () => {
-    const keywords = query.trim().split(/\s+/).filter(Boolean);
-    const activeFields = fieldList.filter((field) => searchFields[field]);
-    const result = filterCards(cards, keywords, activeFields, useRegex);
-    console.log("検索結果のカード番号:", result.map(c => c["カード番号"]));
+    const result = searchCards(cards, query, searchFields, useRegex);
     setFiltered(result);
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") handleSearch();
+  };
+
+  const toggleField = (field) => {
+    setSearchFields((prev) => ({ ...prev, [field]: !prev[field] }));
+  };
+
   const toggleDisplayField = (field) => {
-    setDisplayFields({ ...displayFields, [field]: !displayFields[field] });
+    setDisplayFields((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
-  const addToDeck = (card) => {
-    const isLrigDeckCard = ["ルリグ", "アシストルリグ", "ピース", "アーツ"].includes(card["カード種類"]);
-    const setDeck = isLrigDeckCard ? setDeckLrig : setDeckMain;
-    const deck = isLrigDeckCard ? deckLrig : deckMain;
-    const name = card["カード名"];
-    const count = deck[name]?.count || 0;
-    if (isLrigDeckCard && count >= 1) return;
-    if (!isLrigDeckCard && count >= 4) return;
-    setDeck({
-      ...deck,
-      [name]: {
-        count: count + 1,
-        ライフバースト: card["ライフバースト"],
-        カード種類: card["カード種類"]
-      },
-    });
-  };
-
-  const adjustMainDeck = (name, delta) => {
-    setDeckMain((prev) => {
-      const updated = { ...prev };
-      const count = updated[name]?.count || 0;
-      const newCount = count + delta;
-      if (newCount > 0 && newCount <= 4) {
-        updated[name].count = newCount;
-      } else if (newCount <= 0) {
-        delete updated[name];
+  const adjustDeck = (cardName, delta, type, lb) => {
+    setDeck((prev) => {
+      const prevCount = prev[cardName]?.count || 0;
+      const newCount = Math.max(0, prevCount + delta);
+      if (newCount === 0) {
+        const copy = { ...prev };
+        delete copy[cardName];
+        return copy;
       }
-      return updated;
+      return {
+        ...prev,
+        [cardName]: { count: newCount, ライフバースト: lb, カード種類: type },
+      };
     });
   };
 
-  const removeFromLrigDeck = (name) => {
-    setDeckLrig((prev) => {
-      const updated = { ...prev };
-      delete updated[name];
-      return updated;
-    });
-  };
-
-  const deck = showMainDeck ? deckMain : deckLrig;
-  const totalCards = Object.values(deck).reduce((sum, item) => sum + item.count, 0);
-  const totalLB = Object.values(deck).reduce(
-    (sum, item) => sum + (item.ライフバースト && item.ライフバースト !== "―" ? item.count : 0),
-    0
-  );
-
-  const sortedDeckEntries = Object.entries(deck).sort(([aName, aData], [bName, bData]) => {
-    const aHasLB = aData.ライフバースト && aData.ライフバースト !== "―";
-    const bHasLB = bData.ライフバースト && bData.ライフバースト !== "―";
-    if (aHasLB === bHasLB) return 0;
-    return aHasLB ? -1 : 1;
-  });
+  const deckEntries = Object.entries(deck);
+  const totalCount = deckEntries.reduce((acc, [, v]) => acc + v.count, 0);
+  const lbCount = deckEntries.reduce((acc, [, v]) => acc + (v.ライフバースト?.includes("★") ? v.count : 0), 0);
 
   return (
-    <div>
-      <div style={{ padding: "1em" }}>
+    <div className="App">
+      <div className="header-fixed">
+        <h1>WIXOSS カード検索</h1>
         <input
           type="text"
           placeholder="検索..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          style={{ margin: "10px", padding: "5px", width: "80%" }}
+          onKeyDown={handleKeyDown}
         />
-        <button onClick={handleSearch} style={{ padding: "6px 12px", marginBottom: "10px" }}>
-          検索
-        </button>
+        <button onClick={handleSearch}>検索</button>
         <label style={{ marginLeft: "10px" }}>
           <input
             type="checkbox"
@@ -150,19 +117,19 @@ function App() {
             onChange={() => setUseRegex(!useRegex)}
           /> 正規表現
         </label>
-        <div style={{ margin: "10px 0" }}>
+        <div className="field-controls">
           <strong>検索対象:</strong>
-          {fieldList.map((field) => (
+          {Object.keys(searchFields).map((field) => (
             <label key={field} style={{ marginLeft: "10px" }}>
               <input
                 type="checkbox"
                 checked={searchFields[field]}
-                onChange={() => setSearchFields({ ...searchFields, [field]: !searchFields[field] })}
+                onChange={() => toggleField(field)}
               /> {fieldLabels[field] || field}
             </label>
           ))}
         </div>
-        <div style={{ margin: "10px 0" }}>
+        <div className="field-controls">
           <strong>表示項目:</strong>
           {displayOrder.map((field) => (
             <label key={field} style={{ marginLeft: "10px" }}>
@@ -174,23 +141,30 @@ function App() {
             </label>
           ))}
         </div>
-        <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #ccc" }}>
+        <table className="fixed-header-table">
           <thead>
             <tr>
-              <th style={{ border: "1px solid #ccc" }}>{fieldLabels["カード名"]}</th>
-              {displayOrder.filter(f => displayFields[f]).map((f, i) => (
-                <th key={i} style={{ border: "1px solid #ccc" }}>{fieldLabels[f] || f}</th>
+              <th>カード名</th>
+              {displayOrder.filter((key) => displayFields[key]).map((key) => (
+                <th key={key}>{fieldLabels[key]}</th>
               ))}
             </tr>
           </thead>
+        </table>
+      </div>
+
+      <div className="table-container">
+        <table className="fixed-header-table">
           <tbody>
-            {filtered.map((card, index) => (
-              <tr key={index}>
-                <td
-                  style={{ border: "1px solid #ccc", cursor: "pointer" }}
-                  onClick={() => addToDeck(card)}
-                >
-                  {card["カード名"]}
+            {filtered.map((card, i) => (
+              <tr key={i}>
+                <td>
+                  <span
+                    style={{ cursor: "pointer" }}
+                    onClick={() => adjustDeck(card["カード名"], 1, card["カード種類"], card["ライフバースト"]) }
+                  >
+                    {card["カード名"]}
+                  </span>
                   <a
                     href={`https://www.takaratomy.co.jp/products/wixoss/library/card/card_detail.php?card_no=${card["カード番号"]}`}
                     target="_blank"
@@ -201,8 +175,8 @@ function App() {
                     ❔
                   </a>
                 </td>
-                {displayOrder.filter(f => displayFields[f]).map((f, j) => (
-                  <td key={j} style={{ border: "1px solid #ccc" }}>{card[f]}</td>
+                {displayOrder.filter((key) => displayFields[key]).map((key) => (
+                  <td key={key}>{card[key]}</td>
                 ))}
               </tr>
             ))}
@@ -210,66 +184,30 @@ function App() {
         </table>
       </div>
 
-      <div style={{
-        position: "fixed",
-        bottom: "20px",
-        right: "20px",
-        background: "#fff",
-        border: "1px solid #ccc",
-        padding: "1em",
-        borderRadius: "8px",
-        width: "300px",
-        maxHeight: "90vh",
-        overflowY: "auto",
-        boxShadow: "0 0 10px rgba(0,0,0,0.2)",
-        textAlign: "left"
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h3 style={{ margin: 0 }}>
-            現在の{showMainDeck ? "メインデッキ" : "ルリグデッキ"}
-          </h3>
+      <div className="deck-box">
+        <div className="deck-header">
+          <h3>{showMainDeck ? "現在のメインデッキ" : "現在のルリグデッキ"}</h3>
           <div>
-            <button onClick={() => setShowMainDeck(!showMainDeck)} style={{ marginLeft: "0.5em" }}>
-              {showMainDeck ? "ルリグ" : "メイン"}
-            </button>
-            <button onClick={() => setMinimized(!minimized)} style={{ marginLeft: "0.5em" }}>
-              {minimized ? "＋" : "－"}
-            </button>
+            <button onClick={() => setShowMainDeck(!showMainDeck)}>ルリグ</button>
+            <button onClick={() => setMinimized(!minimized)}>{minimized ? "＋" : "－"}</button>
           </div>
         </div>
-        <p>
-          枚数: {totalCards}
-          {showMainDeck && ` / LB: ${totalLB}`}
-        </p>
+        <p>枚数: {totalCount} / LB: {lbCount}</p>
         {!minimized && (
-          sortedDeckEntries.length > 0 ? (
-            <ul style={{ listStyle: "none", paddingLeft: 0 }}>
-              {sortedDeckEntries.map(([name, data]) => (
-                <li
-                  key={name}
-                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                >
-                  <span>{data.ライフバースト !== "―" ? "★" : ""}{name}</span>
-                  <span style={{ marginLeft: "0.5em", display: "flex", alignItems: "center" }}>
-                    {showMainDeck ? (
-                      <>
-                        <button onClick={() => adjustMainDeck(name, -1)} style={{ marginRight: "4px" }}>－</button>
-                        <span>×{data.count}</span>
-                        <button onClick={() => adjustMainDeck(name, 1)} style={{ marginLeft: "4px" }}>＋</button>
-                      </>
-                    ) : (
-                      <>
-                        <button onClick={() => removeFromLrigDeck(name)} style={{ marginRight: "4px" }}>－</button>
-                        <span>×{data.count}</span>
-                      </>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>カードが追加されていません。</p>
-          )
+          <ul style={{ listStyle: "none", paddingLeft: 0 }}>
+            {deckEntries.map(([name, info]) => (
+              <li key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>{name}</span>
+                <span style={{ marginLeft: "0.5em", display: "flex", alignItems: "center" }}>
+                  <button onClick={() => adjustDeck(name, -1, info.カード種類, info.ライフバースト)} style={{ marginRight: 4 }}>－</button>
+                  <span>×{info.count}</span>
+                  {info.カード種類 !== "ルリグ" && info.count < 4 && (
+                    <button onClick={() => adjustDeck(name, 1, info.カード種類, info.ライフバースト)} style={{ marginLeft: 4 }}>＋</button>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </div>
