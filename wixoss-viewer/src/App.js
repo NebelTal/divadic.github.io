@@ -12,6 +12,17 @@ function App() {
     カード種類: false,
     カードタイプ: false,
   });
+  const [displayFields, setDisplayFields] = useState({
+    効果テキスト: true,
+    ライフバースト: true,
+    カード種類: true,
+    カードタイプ: true,
+    色: true,
+    レベル: true,
+    コスト: true,
+    パワー: true,
+    使用タイミング: true,
+  });
 
   useEffect(() => {
     fetch(`${process.env.PUBLIC_URL}/cards.json?t=${Date.now()}`)
@@ -31,7 +42,6 @@ function App() {
       )
     );
 
-    // カード名ごとに重複除外（カード名が同じなら1つだけ表示）
     const uniqueByCardName = [];
     const seen = new Set();
     for (const card of result) {
@@ -56,6 +66,10 @@ function App() {
     setSearchFields({ ...searchFields, [field]: !searchFields[field] });
   };
 
+  const toggleDisplayField = (field) => {
+    setDisplayFields({ ...displayFields, [field]: !displayFields[field] });
+  };
+
   return (
     <div className="App" style={{ padding: "2rem", fontFamily: "sans-serif" }}>
       <h1>WIXOSS カード検索</h1>
@@ -67,7 +81,9 @@ function App() {
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={handleKeyDown}
       />
+
       <div style={{ marginBottom: "1rem" }}>
+        <strong>検索対象:</strong>
         {Object.keys(searchFields).map((field) => (
           <label key={field} style={{ marginRight: "1em" }}>
             <input
@@ -79,14 +95,30 @@ function App() {
           </label>
         ))}
       </div>
+
+      <div style={{ marginBottom: "1rem" }}>
+        <strong>表示項目:</strong>
+        {Object.keys(displayFields).map((field) => (
+          <label key={field} style={{ marginRight: "1em" }}>
+            <input
+              type="checkbox"
+              checked={displayFields[field]}
+              onChange={() => toggleDisplayField(field)}
+            />
+            {field}
+          </label>
+        ))}
+      </div>
+
       <button onClick={handleSearch}>検索</button>
 
       {filtered.length > 0 && (
         <table border="1" cellPadding="4">
           <thead>
             <tr>
+              <th>カード名</th>
               {Object.keys(filtered[0])
-                .filter((key) => key !== "カード番号")
+                .filter((key) => key !== "カード番号" && key !== "カード名" && displayFields[key])
                 .map((key, i) => (
                   <th key={i}>{key}</th>
                 ))}
@@ -95,8 +127,9 @@ function App() {
           <tbody>
             {filtered.map((card, i) => (
               <tr key={i}>
+                <td>{card["カード名"]}</td>
                 {Object.entries(card)
-                  .filter(([key]) => key !== "カード番号")
+                  .filter(([key]) => key !== "カード番号" && key !== "カード名" && displayFields[key])
                   .map(([_, val], j) => (
                     <td key={j}>{val}</td>
                   ))}
