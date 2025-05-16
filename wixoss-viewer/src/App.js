@@ -260,7 +260,7 @@ function App() {
                   alignItems: "center",
                 }}
               >
-                <span>{info.ライフバースト?.includes("★") ? "★" : ""}{name}</span>
+                <span>{info.ライフバースト && info.ライフバースト !== "―" ? "★" : ""}{name}</span>
                 <span
                   style={{
                     marginLeft: "0.5em",
@@ -277,16 +277,17 @@ function App() {
                     －
                   </button>
                   <span>×{info.count}</span>
-                  {!isLrigCard(info.カード種類) && info.count < 4 && (
-                    <button
-                      onClick={() =>
-                        adjustDeck(name, 1, info.カード種類, info.ライフバースト)
-                      }
-                      style={{ marginLeft: 4 }}
-                    >
-                      ＋
-                    </button>
-                  )}
+                  {!isLrigCard(info.カード種類) && (
+  <button
+    onClick={() =>
+      adjustDeck(name, 1, info.カード種類, info.ライフバースト)
+    }
+    disabled={info.count >= 4}
+    style={{ marginLeft: 4, opacity: info.count >= 4 ? 0.5 : 1 }}
+  >
+    ＋
+  </button>
+)}
                 </span>
               </li>
             ))}
