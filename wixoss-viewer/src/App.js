@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import "./App.css";
+import { filterCards } from "./utils/search"; // ← 分離済みの検索ロジックをインポート
 
 function App() {
   const [cards, setCards] = useState([]);
@@ -65,33 +66,9 @@ function App() {
   const handleSearch = () => {
     const keywords = query.trim().split(/\s+/).filter(Boolean);
     const activeFields = fieldList.filter((field) => searchFields[field]);
-
-    const result = cards.filter((card) =>
-      keywords.every((kw) => {
-        try {
-          const regex = useRegex ? new RegExp(kw, "i") : null;
-          return activeFields.some((field) => {
-            const value = card[field] || "";
-            return useRegex
-              ? regex.test(value)
-              : value.toLowerCase().includes(kw.toLowerCase());
-          });
-        } catch (e) {
-          console.error("Invalid regex:", kw);
-          return false;
-        }
-      })
-    );
-
-    const seen = new Set();
-    const unique = result.filter((c) => {
-      if (seen.has(c["カード名"])) return false;
-      seen.add(c["カード名"]);
-      return true;
-    });
-
-    console.log("検索結果のカード番号:", unique.map(c => c["カード番号"]));
-    setFiltered(unique);
+    const result = filterCards(cards, keywords, activeFields, useRegex);
+    console.log("検索結果のカード番号:", result.map(c => c["カード番号"]));
+    setFiltered(result);
   };
 
   const toggleDisplayField = (field) => {
