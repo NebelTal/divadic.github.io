@@ -15,14 +15,14 @@ function App() {
   });
   const [displayFields, setDisplayFields] = useState({
     カード種類: true,
-    カードタイプ: true,
-    色: true,
-    レベル: true,
-    コスト: true,
-    パワー: true,
+    カードタイプ: false,
+    色: false,
+    レベル: false,
+    コスト: false,
+    パワー: false,
     効果テキスト: true,
-    ライフバースト: true,
-    使用タイミング: true,
+    ライフバースト: false,
+    使用タイミング: false,
   });
   const [deckMain, setDeckMain] = useState({});
   const [deckLrig, setDeckLrig] = useState({});
@@ -302,71 +302,71 @@ function App() {
         </table>
       </div>
 
-      <div className="deck-box">
-        <div className="deck-header">
-          <h3>{showMainDeck ? "現在のメインデッキ" : "現在のルリグデッキ"}</h3>
-          <div>
-            <button onClick={() => setShowMainDeck(!showMainDeck)}>
-              {showMainDeck ? "ルリグ" : "メイン"}
-            </button>
-            <button onClick={() => setMinimized(!minimized)}>
-              {minimized ? "＋" : "－"}
-            </button>
-          </div>
-        </div>
-        <p style={{ margin: 0, fontSize: "1em" }}>
+<div className="deck-box">
+  <div className="deck-header" style={{ justifyContent: minimized ? "flex-end" : "space-between" }}>
+    {!minimized && (
+      <h3>{showMainDeck ? "現在のメインデッキ" : "現在のルリグデッキ"}</h3>
+    )}
+    <div>
+      {!minimized && (
+        <button onClick={() => setShowMainDeck(!showMainDeck)}>
+          {showMainDeck ? "ルリグ" : "メイン"}
+        </button>
+      )}
+      <button onClick={() => setMinimized(!minimized)}>
+        {minimized ? "＋" : "－"}
+      </button>
+    </div>
+  </div>
+
+  {!minimized && (
+    <>
+      <p style={{ margin: 0, fontSize: "1em" }}>
         {showMainDeck
           ? `ルリグデッキ：${Object.values(deckLrig).reduce((acc, v) => acc + v.count, 0)}枚`
           : `メインデッキ：${Object.values(deckMain).reduce((acc, v) => acc + v.count, 0)}枚`}
-        </p>
-        <p>
-          枚数: {totalCount} {showMainDeck && `/ LB: ${lbCount}`}
-        </p>
-        {!minimized && (
-          <ul style={{ listStyle: "none", paddingLeft: 0 }}>
-            {deckEntries.map(([name, info]) => (
-              <li
-                key={name}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
+      </p>
+      <p>枚数: {totalCount} {showMainDeck && `/ LB: ${lbCount}`}</p>
+      <ul style={{ listStyle: "none", paddingLeft: 0 }}>
+        {deckEntries.map(([name, info]) => (
+          <li
+            key={name}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span>{info.ライフバースト && info.ライフバースト !== "―" ? "★" : ""}{name}</span>
+            <span style={{ marginLeft: "0.5em", display: "flex", alignItems: "center" }}>
+              <button
+                onClick={() =>
+                  adjustDeck(name, -1, info.カード種類, info.ライフバースト)
+                }
+                style={{ marginRight: 4 }}
               >
-                <span>{info.ライフバースト && info.ライフバースト !== "―" ? "★" : ""}{name}</span>
-                <span
-                  style={{
-                    marginLeft: "0.5em",
-                    display: "flex",
-                    alignItems: "center",
-                  }}
+                －
+              </button>
+              <span>×{info.count}</span>
+              {!isLrigCard(info.カード種類) && (
+                <button
+                  onClick={() =>
+                    adjustDeck(name, 1, info.カード種類, info.ライフバースト)
+                  }
+                  disabled={info.count >= 4}
+                  style={{ marginLeft: 4, opacity: info.count >= 4 ? 0.5 : 1 }}
                 >
-                  <button
-                    onClick={() =>
-                      adjustDeck(name, -1, info.カード種類, info.ライフバースト)
-                    }
-                    style={{ marginRight: 4 }}
-                  >
-                    －
-                  </button>
-                  <span>×{info.count}</span>
-                  {!isLrigCard(info.カード種類) && (
-  <button
-    onClick={() =>
-      adjustDeck(name, 1, info.カード種類, info.ライフバースト)
-    }
-    disabled={info.count >= 4}
-    style={{ marginLeft: 4, opacity: info.count >= 4 ? 0.5 : 1 }}
-  >
-    ＋
-  </button>
-)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+                  ＋
+                </button>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </>
+  )}
+</div>
+
 
 {showModal && (
   <div style={{
