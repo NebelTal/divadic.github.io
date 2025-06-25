@@ -120,9 +120,6 @@ function App() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
 
-    console.log(cardList);
-    console.log(numList);
-
     // 背景画像描画
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     
@@ -515,7 +512,7 @@ function App() {
       </ul>
     </>
   )}
-  <img ref={imageRef} src="/template.png" style={{ display: 'none' }} />
+  <img ref={imageRef} src="/images/template.png" style={{ display: 'none' }} />
 </div>
 
 
