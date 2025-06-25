@@ -340,6 +340,8 @@ function App() {
 
   return (
     <div className="App">
+      <header><h1>WIXOSS カード検索</h1></header>
+      <div className="container">
       <div className="header-fixed">
         <input
           type="text"
@@ -390,26 +392,11 @@ function App() {
             </label>
           ))}
         </div>
-        <table className="fixed-header-table">
-          <thead>
-            <tr>
-              <th>カード名</th>
-              {displayOrder
-                .filter((key) => displayFields[key])
-                .map((key) => (
-                  <th key={key}>{fieldLabels[key]}</th>
-                ))}
-            </tr>
-          </thead>
-        </table>
       </div>
 
-      <div className="table-container">
-        <table className="fixed-header-table">
-          <tbody>
+      <div className="table-container search-result">
             {filtered.map((card, i) => (
-              <tr key={i}>
-                <td>
+              <div key={i} className="card-item"> 
                   <span
                     style={{ cursor: "pointer" }}
                     onClick={() =>
@@ -420,6 +407,7 @@ function App() {
                         card["ライフバースト"]
                       )
                     }
+                    className="cardname"
                   >
                     {card["カード名"]}
                   </span>
@@ -432,22 +420,37 @@ function App() {
                   >
                     ❔
                   </a>
-                </td>
-{displayOrder
-  .filter((key) => displayFields[key])
-  .map((key) => (
-    <td
-      key={key}
-      dangerouslySetInnerHTML={{
-        __html: (card[key] || "").replace(/\n/g, "<br>")
-      }}
-    />
-  ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                <div className="attr" style={{ marginTop: "0.3em" }}>
+      <div className="row">
+        <div className="type"><strong>種類:</strong> {card["カード種類"]}</div>
+        <div className="color"><strong>色:</strong> {card["色"]}</div>
+        <div><strong>レベル:</strong> {card["レベル"]}</div>
+        <div><strong>コスト:</strong><span dangerouslySetInnerHTML={{
+            __html: (card["コスト"] || "").replace(/<br>/g, " "),
+          }}></span></div>
+        <div><strong>パワー:</strong> {card["パワー"]}</div>
+        <div><strong>タイプ:</strong><span dangerouslySetInnerHTML={{
+            __html: (card["カードタイプ"] || "").replace(/<br>/g, " "),
+          }}></span></div>
+
+        <div><strong>タイミング:</strong><span dangerouslySetInnerHTML={{
+            __html: (card["使用タイミング"] || "").replace(/<br>/g, " "),
+          }}></span></div>
       </div>
+      <div className="LB">
+        <div><strong>LB:</strong> {card["ライフバースト"]}</div>
+      </div>
+      <div className="text">
+        <span
+          dangerouslySetInnerHTML={{
+            __html: (card["効果テキスト"] || "").replace(/\n/g, "<br>"),
+          }}
+        />
+      </div>
+      </div>
+    </div>
+  ))}
+</div>
 
 <div className="deck-box">
   <div className="deck-header" style={{ justifyContent: minimized ? "flex-end" : "space-between" }}>
@@ -456,12 +459,12 @@ function App() {
     )}
     <div>
       {!minimized && (
-        <button onClick={() => setShowMainDeck(!showMainDeck)}>
+        <button onClick={() => setShowMainDeck(!showMainDeck)} className="deck-toggle-button">
           {showMainDeck ? "ルリグ" : "メイン"}
         </button>
       )}
       <button onClick={() => setMinimized(!minimized)}>
-        {minimized ? "＋" : "－"}
+        {minimized ? "▲" : "▼"}
       </button>
     </div>
   </div>
@@ -639,7 +642,8 @@ function App() {
 )}
 
 
-
+</div>
+<footer>nebelTal</footer>
     </div>
   );
 }
