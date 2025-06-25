@@ -512,7 +512,7 @@ function App() {
       </ul>
     </>
   )}
-  <img ref={imageRef} src="/images/template.png" style={{ display: 'none' }} />
+  <img ref={imageRef} src={`${process.env.PUBLIC_URL}/images/template.png`} style={{ display: 'none' }} />
 </div>
 
 
