@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "./App.css";
 
 function App() {
@@ -32,6 +32,7 @@ function App() {
   const [outputText, setOutputText] = useState("");
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState("");
+  const imageRef = useRef(null);
 
 
   const displayOrder = [
@@ -107,6 +108,127 @@ function App() {
     setSearchFields((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
+  const drawDeckOnTemplate = (
+    img,
+    cardList,
+    numList
+  ) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    console.log(cardList);
+    console.log(numList);
+
+    // 背景画像描画
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    
+    // テキスト設定
+    ctx.font = `16px sans-serif`;
+    ctx.fillStyle = "black";
+
+    const lineHeight = 46;
+
+    // ルリグデッキのカードナンバー描画
+    // 最初の6枚
+    let x = 200;
+    let y = 619;
+    for (let i = 0; i < 6; i++) {
+      const text = `${numList.Lrig[i]}`;
+      ctx.fillText(text, x, y + i * lineHeight);
+    }
+    // 次の6枚
+    x = 875;
+    for (let i = 6; i < numList.Lrig.length; i++) {
+      const text = `${numList.Lrig[i]}`;
+      ctx.fillText(text, x, y + (i - 6) * lineHeight);
+    }
+
+    // LBのカードナンバー描画
+    // 最初の10枚
+    x = 200;
+    y = 1040;
+    for (let i = 0; i < 10; i++) {
+      const text = `${numList.LB[i]}`;
+      ctx.fillText(text, x, y + i * lineHeight);
+    }
+    // 次の10枚
+    x = 875;
+    for (let i = 10; i < 20; i++) {
+      const text = `${numList.LB[i]}`;
+      ctx.fillText(text, x, y + (i - 10) * lineHeight);
+    }
+
+    // nLBのカードナンバー描画
+    // 最初の10枚
+    x = 200;
+    y = 1647;
+    for (let i = 0; i < 10; i++) {
+      const text = `${numList.nLB[i]}`;
+      ctx.fillText(text, x, y + i * lineHeight);
+    }
+    // 次の10枚
+    x = 875;
+    for (let i = 10; i < 20; i++) {
+      const text = `${numList.nLB[i]}`;
+      ctx.fillText(text, x, y + (i - 10) * lineHeight);
+    }
+
+    // ルリグデッキのカード名描画
+    // 最初の6枚
+    x = 352;
+    y = 619;
+    const lrigKeys = Object.keys(cardList.Lrig);
+    for (let i = 0; i < 6; i++) {
+      const text = `${lrigKeys[i]}`;
+      ctx.fillText(text, x, y + i * lineHeight);
+    }
+    // 次の6枚
+    x = 1026;
+    for (let i = 6; i < lrigKeys.length; i++) {
+      const text = `${lrigKeys[i]}`;
+      ctx.fillText(text, x, y + (i - 6) * lineHeight);
+    }
+
+    // メインデッキのLBカード名描画
+    // 最初の10枚
+    x = 450;
+    y = 1040;
+    const lbList = cardList.LB.flatMap(([name, attr]) => Array(attr.count).fill(name));
+    for (let i = 0; i < 10; i++) {
+      const text = `${lbList[i]}`;
+      ctx.fillText(text, x, y + i * lineHeight);
+    }
+    // 次の10枚
+    x = 1124;
+    for (let i = 10; i < lbList.length; i++) {
+      const text = `${lbList[i]}`;
+      ctx.fillText(text, x, y + (i - 10) * lineHeight);
+    }
+
+    // メインデッキのnLBカード名描画
+    // 最初の10枚
+    x = 352;
+    y = 1647;
+    const nlbList = cardList.nLB.flatMap(([name, attr]) => Array(attr.count).fill(name));
+    for (let i = 0; i < 10; i++) {
+      const text = `${nlbList[i]}`;
+      ctx.fillText(text, x, y + i * lineHeight);
+    }
+    // 次の10枚
+    x = 1026;
+    for (let i = 10; i < nlbList.length; i++) {
+      const text = `${nlbList[i]}`;
+      ctx.fillText(text, x, y + (i - 10) * lineHeight);
+    }
+
+    return canvas.toDataURL("image/png");
+  };
+
+  // デッキリストからカード名でカード番号を引き当てる関数
   const handleOutputClick = () => {
     const getCardNumbers = (deck) =>
      Object.entries(deck).flatMap(([name, info]) =>
@@ -115,18 +237,46 @@ function App() {
        )
       );
 
+    // ルリグデッキのカード番号リスト取得
     const lrigList = getCardNumbers(deckLrig);
 
     const mainList = Object.entries(deckMain);
     const lbCards = mainList.filter(([, info]) => info.ライフバースト && info.ライフバースト !== "―");
     const nonLbCards = mainList.filter(([, info]) => !info.ライフバースト || info.ライフバースト === "―");
 
+    // メインデッキ・LBありのカード番号リスト取得
     const lbList = getCardNumbers(Object.fromEntries(lbCards));
+    // メインデッキ・LBなしのカード番号リスト取得
     const nonLbList = getCardNumbers(Object.fromEntries(nonLbCards));
 
     const all = [...lrigList, ...lbList, ...nonLbList];
+    const cardList = {Lrig:deckLrig, LB:lbCards, nLB:nonLbCards};
+    const numList = {Lrig:lrigList, LB:lbList, nLB:nonLbList}
+
     setOutputText(all.join("\n"));
     setShowModal(true);
+
+    const openImageInNewTab = (imageUrl) => {
+      if (!imageUrl) return;
+      const newTab = window.open();
+      if (newTab) {
+        newTab.document.body.innerHTML = `<img src="${imageUrl}" style="max-width:100%">`;
+      } else {
+        alert("ポップアップブロックが有効かもしれません。");
+      }
+    };
+    const img = imageRef.current;
+    if (!img) return;
+
+    if (!img.complete) {
+      img.onload = () => {
+      const imageUrl = drawDeckOnTemplate(img, cardList, numList);
+      openImageInNewTab(imageUrl);
+      };
+    } else {
+      const imageUrl = drawDeckOnTemplate(img, cardList, numList);
+      openImageInNewTab(imageUrl);
+    }
   };
 
   const handleAddSaba = () => {
@@ -365,6 +515,7 @@ function App() {
       </ul>
     </>
   )}
+  <img ref={imageRef} src="/template.png" style={{ display: 'none' }} />
 </div>
 
 
