@@ -16,6 +16,11 @@
       "src": "logo512.png",
       "type": "image/png",
       "sizes": "512x512"
+    },
+    {
+      "src": "template.png",
+      "type": "image/png",
+      "sizes": "1654x2339"
     }
   ],
   "start_url": ".",
