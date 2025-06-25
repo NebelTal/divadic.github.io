@@ -34,7 +34,11 @@ function App() {
   const [importText, setImportText] = useState("");
   const imageRef = useRef(null);
 
-
+const toHiragana = (str = "") =>
+  str.replace(/[\u30a1-\u30f6]/g, ch =>
+    String.fromCharCode(ch.charCodeAt(0) - 0x60)
+  );
+  
   const displayOrder = [
     "カード種類",
     "カードタイプ",
@@ -69,36 +73,53 @@ function App() {
       .then((data) => setCards(data));
   }, []);
 
-  const handleSearch = () => {
-    const keywords = query.trim().split(/\s+/).filter(Boolean);
-    const activeFields = Object.keys(searchFields).filter((key) => searchFields[key]);
+const handleSearch = () => {
+  const keywords = query.trim().split(/\s+/).filter(Boolean);
+  const activeFields = Object.keys(searchFields).filter((key) => searchFields[key]);
 
-    const result = cards.filter((card) =>
-      keywords.every((kw) => {
-        try {
-          const regex = useRegex ? new RegExp(kw, "i") : null;
-          return activeFields.some((field) => {
-            const value = card[field] || "";
-            return useRegex
-              ? regex.test(value)
-              : value.toLowerCase().includes(kw.toLowerCase());
-          });
-        } catch (e) {
-          console.error("Invalid regex:", kw);
-          return false;
+  const result = cards.filter((card) =>
+    keywords.every((kw) => {
+      const normalizedKw = toHiragana(kw.toLowerCase());
+      const regex = useRegex ? new RegExp(kw, "i") : null;
+
+      return activeFields.some((field) => {
+        const raw = (card[field] || "").toString();
+
+        // 「カード名」フィールドのときだけ、カード名＋読み方を両方チェック
+        if (field === "カード名" && !useRegex) {
+          // ① 元のカード名（部分一致、大文字小文字無視）
+          const hitName = raw.toLowerCase().includes(kw.toLowerCase());
+          // ② カードの読み方（カタカナ→ひらがな化して、ひらがな検索を可能に）
+          const reading = card["カードの読み方"] || "";
+          const hira = toHiragana(reading.toLowerCase());
+          const hitReading = hira.includes(normalizedKw);
+          return hitName || hitReading;
         }
-      })
-    );
 
-    const seen = new Set();
-    const unique = result.filter((c) => {
-      if (seen.has(c["カード名"])) return false;
-      seen.add(c["カード名"]);
-      return true;
-    });
+        // 正規表現モードなら、カード名／読み方いずれも regex.test でチェック
+        if (field === "カード名" && useRegex) {
+          const reading = card["カードの読み方"] || "";
+          return regex.test(raw) || regex.test(reading);
+        }
 
-    setFiltered(unique);
-  };
+        // その他フィールドは従来通り
+        return useRegex
+          ? regex.test(raw)
+          : raw.toLowerCase().includes(kw.toLowerCase());
+      });
+    })
+  );
+
+  // 重複カード名を除いてセット
+  const seen = new Set();
+  const unique = result.filter((c) => {
+    if (seen.has(c["カード名"])) return false;
+    seen.add(c["カード名"]);
+    return true;
+  });
+  setFiltered(unique);
+};
+
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter") handleSearch();
