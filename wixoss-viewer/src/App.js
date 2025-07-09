@@ -166,18 +166,38 @@ const handleSearch = () => {
     }
 
     // LBのカードナンバー描画
-    // 最初の10枚
-    x = 200;
-    y = 1040;
-    for (let i = 0; i < 10; i++) {
-      const text = `${numList.LB[i]}`;
-      ctx.fillText(text, x, y + i * lineHeight);
-    }
-    // 次の10枚
-    x = 875;
-    for (let i = 10; i < 20; i++) {
-      const text = `${numList.LB[i]}`;
-      ctx.fillText(text, x, y + (i - 10) * lineHeight);
+    const diff = 20 - numList.LB.length;
+    if (diff === 0){
+      // 最初の10枚
+      x = 200;
+      y = 1040;
+      for (let i = 0; i < 10; i++) {
+        const text = `${numList.LB[i]}`;
+        ctx.fillText(text, x, y + i * lineHeight);
+      }
+      // 次の10枚
+      x = 875;
+      for (let i = 10; i < 20; i++) {
+        const text = `${numList.LB[i]}`;
+        ctx.fillText(text, x, y + (i - 10) * lineHeight);
+      }
+    } else {
+      const fromNLB = numList.nLB.splice(0, diff);
+      numList.LB = numList.LB.concat(fromNLB);
+      console.log(numList.LB.length);
+      // 最初の10枚
+      x = 200;
+      y = 1040;
+      for (let i = 0; i < 10; i++) {
+        const text = `${numList.LB[i]}`;
+        ctx.fillText(text, x, y + i * lineHeight);
+      }
+      // 次の10枚
+      x = 875;
+      for (let i = 10; i < 20; i++) {
+        const text = `${numList.LB[i]}`;
+        ctx.fillText(text, x, y + (i - 10) * lineHeight);
+      }
     }
 
     // nLBのカードナンバー描画
@@ -213,34 +233,78 @@ const handleSearch = () => {
 
     // メインデッキのLBカード名描画
     // 最初の10枚
-    x = 450;
-    y = 1040;
-    const lbList = cardList.LB.flatMap(([name, attr]) => Array(attr.count).fill(name));
-    for (let i = 0; i < 10; i++) {
-      const text = `${lbList[i]}`;
-      ctx.fillText(text, x, y + i * lineHeight);
-    }
-    // 次の10枚
-    x = 1124;
-    for (let i = 10; i < lbList.length; i++) {
-      const text = `${lbList[i]}`;
-      ctx.fillText(text, x, y + (i - 10) * lineHeight);
+    let expandedLBList = [];
+    let expandedNLBList = [];
+    if (diff === 0){
+      x = 450;
+      y = 1040;
+      const lbList = cardList.LB.flatMap(([name, attr]) => Array(attr.count).fill(name));
+      for (let i = 0; i < 10; i++) {
+        const text = `${lbList[i]}`;
+        ctx.fillText(text, x, y + i * lineHeight);
+      }
+      // 次の10枚
+      x = 1124;
+      for (let i = 10; i < lbList.length; i++) {
+        const text = `${lbList[i]}`;
+        ctx.fillText(text, x, y + (i - 10) * lineHeight);
+      }
+    } else {
+      x = 450;
+      y = 1040;
+      expandedLBList = cardList.LB.flatMap(([name, info]) =>
+        Array(info.count).fill([name, info])
+      );
+      expandedNLBList = cardList.nLB.flatMap(([name, info]) =>
+        Array(info.count).fill([name, info])
+      );
+      const moveNLBs = expandedNLBList.splice(0,diff);
+      expandedLBList.push(...moveNLBs);
+      for (let i = 0; i < 10; i++) {
+        const text = `${expandedLBList[i][0]}`;
+        ctx.fillText(text, x, y + i * lineHeight);
+        if (expandedLBList[i][1].ライフバースト == "―") {
+          ctx.fillText("✓",x - 64,y + i * lineHeight,)
+        }
+      }
+      // 次の10枚
+      x = 1124;
+      for (let i = 10; i < expandedLBList.length; i++) {
+        const text = `${expandedLBList[i][0]}`;
+        ctx.fillText(text, x, y + (i - 10) * lineHeight);
+        if (expandedLBList[i][1].ライフバースト == "―") {
+          ctx.fillText("✓",x - 64,y + (i - 10) * lineHeight,)
+        }
+      }
     }
 
     // メインデッキのnLBカード名描画
-    // 最初の10枚
     x = 352;
     y = 1647;
-    const nlbList = cardList.nLB.flatMap(([name, attr]) => Array(attr.count).fill(name));
-    for (let i = 0; i < 10; i++) {
-      const text = `${nlbList[i]}`;
-      ctx.fillText(text, x, y + i * lineHeight);
-    }
-    // 次の10枚
-    x = 1026;
-    for (let i = 10; i < nlbList.length; i++) {
-      const text = `${nlbList[i]}`;
-      ctx.fillText(text, x, y + (i - 10) * lineHeight);
+    if (diff === 0) {
+      // 最初の10枚
+      const nlbList = cardList.nLB.flatMap(([name, attr]) => Array(attr.count).fill(name));
+      for (let i = 0; i < 10; i++) {
+        const text = `${nlbList[i]}`;
+        ctx.fillText(text, x, y + i * lineHeight);
+      }
+      // 次の10枚
+      x = 1026;
+      for (let i = 10; i < nlbList.length; i++) {
+        const text = `${nlbList[i]}`;
+        ctx.fillText(text, x, y + (i - 10) * lineHeight);
+      }
+    } else {
+      for (let i = 0; i < 10; i++) {
+        const text = `${expandedNLBList[i][0]}`;
+        ctx.fillText(text, x, y + i * lineHeight);
+      }
+      // 次の10枚
+      x = 1026;
+      for (let i = 10; i < expandedNLBList.length; i++) {
+        const text = `${expandedNLBList[i][0]}`;
+        ctx.fillText(text, x, y + (i - 10) * lineHeight);
+      }
     }
 
     return canvas.toDataURL("image/png");
