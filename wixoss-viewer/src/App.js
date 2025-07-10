@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { FaSearch } from "react-icons/fa";
 import "./App.css";
 
 function App() {
@@ -12,17 +13,6 @@ function App() {
     ライフバースト: false,
     カード種類: false,
     カードタイプ: false,
-  });
-  const [displayFields, setDisplayFields] = useState({
-    カード種類: true,
-    カードタイプ: false,
-    色: false,
-    レベル: false,
-    コスト: false,
-    パワー: false,
-    効果テキスト: true,
-    ライフバースト: false,
-    使用タイミング: false,
   });
   const [deckMain, setDeckMain] = useState({});
   const [deckLrig, setDeckLrig] = useState({});
@@ -38,18 +28,6 @@ const toHiragana = (str = "") =>
   str.replace(/[\u30a1-\u30f6]/g, ch =>
     String.fromCharCode(ch.charCodeAt(0) - 0x60)
   );
-  
-  const displayOrder = [
-    "カード種類",
-    "カードタイプ",
-    "色",
-    "レベル",
-    "コスト",
-    "パワー",
-    "効果テキスト",
-    "ライフバースト",
-    "使用タイミング",
-  ];
 
   const fieldLabels = {
     カード名: "カード名",
@@ -388,10 +366,6 @@ const handleSearch = () => {
     });
   };
 
-  const toggleDisplayField = (field) => {
-    setDisplayFields((prev) => ({ ...prev, [field]: !prev[field] }));
-  };
-
   const adjustDeck = (cardName, delta, type, lb) => {
     const isLrig = isLrigCard(type);
     const setDeck = isLrig ? setDeckLrig : setDeckMain;
@@ -428,116 +402,43 @@ const handleSearch = () => {
       <header><h1>WIXOSS カード検索</h1></header>
       <div className="container">
       <div className="header-fixed">
-        <input
-          type="text"
-          placeholder="検索..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-        />
-        <button onClick={handleSearch}>検索</button>
-        <label style={{ marginLeft: "10px" }}>
+        <div className="search-row">
+          <input
+            type="text"
+            placeholder="検索..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="search-textbox"
+          />
+          <button onClick={handleSearch} className="search-button"><FaSearch /></button>
+        </div>
+        <div>
+        <label className="toggle-regex">
           <input
             type="checkbox"
             checked={useRegex}
             onChange={() => setUseRegex(!useRegex)}
-          /> 正規表現
+          /> 正規表現を使う
         </label>
-<button style={{ marginLeft: "16px" }} onClick={handleAddSaba}>
-  鯖＃
-</button>
-        <button style={{ marginLeft: "16px" }} onClick={handleOutputClick}>
-        出力
-        </button>
-          <button style={{ marginLeft: "8px" }} onClick={() => setShowImportModal(true)}>
-  インポート
-</button>
+        </div>
 
-        <div className="field-controls">
-          <strong>検索対象:</strong>
+        <div className="field-controls searchfield-check">
           {Object.keys(searchFields).map((field) => (
-            <label key={field} style={{ marginLeft: "10px" }}>
-              <input
+            <>
+            <input
+                id={field}
                 type="checkbox"
                 checked={searchFields[field]}
                 onChange={() => toggleField(field)}
-              /> {fieldLabels[field] || field}
+              />
+            <label key={field} htmlFor={field}className="searchfield-checkbox">
+              {fieldLabels[field] || field}
             </label>
+            </>
           ))}
         </div>
-        <div className="field-controls">
-          <strong>表示項目:</strong>
-          {displayOrder.map((field) => (
-            <label key={field} style={{ marginLeft: "10px" }}>
-              <input
-                type="checkbox"
-                checked={displayFields[field]}
-                onChange={() => toggleDisplayField(field)}
-              /> {fieldLabels[field] || field}
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div className="table-container search-result">
-            {filtered.map((card, i) => (
-              <div key={i} className="card-item"> 
-                  <span
-                    style={{ cursor: "pointer" }}
-                    onClick={() =>
-                      adjustDeck(
-                        card["カード名"],
-                        1,
-                        card["カード種類"],
-                        card["ライフバースト"]
-                      )
-                    }
-                    className="cardname"
-                  >
-                    {card["カード名"]}
-                  </span>
-                  <a
-                    href={`https://www.takaratomy.co.jp/products/wixoss/library/card/card_detail.php?card_no=${card["カード番号"]}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ marginLeft: "0.3em", fontSize: "0.8em" }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    ❔
-                  </a>
-                <div className="attr" style={{ marginTop: "0.3em" }}>
-      <div className="row">
-        <div className="type"><strong>種類:</strong> {card["カード種類"]}</div>
-        <div className="color"><strong>色:</strong> {card["色"]}</div>
-        <div><strong>レベル:</strong> {card["レベル"]}</div>
-        <div><strong>コスト:</strong><span dangerouslySetInnerHTML={{
-            __html: (card["コスト"] || "").replace(/<br>/g, " "),
-          }}></span></div>
-        <div><strong>パワー:</strong> {card["パワー"]}</div>
-        <div><strong>タイプ:</strong><span dangerouslySetInnerHTML={{
-            __html: (card["カードタイプ"] || "").replace(/<br>/g, " "),
-          }}></span></div>
-
-        <div><strong>タイミング:</strong><span dangerouslySetInnerHTML={{
-            __html: (card["使用タイミング"] || "").replace(/<br>/g, " "),
-          }}></span></div>
-      </div>
-      <div className="LB">
-        <div><strong>LB:</strong> {card["ライフバースト"]}</div>
-      </div>
-      <div className="text">
-        <span
-          dangerouslySetInnerHTML={{
-            __html: (card["効果テキスト"] || "").replace(/\n/g, "<br>"),
-          }}
-        />
-      </div>
-      </div>
-    </div>
-  ))}
-</div>
-
-<div className="deck-box">
+        <div className="deck-box">
   <div className="deck-header" style={{ justifyContent: minimized ? "flex-end" : "space-between" }}>
     {!minimized && (
       <h3>{showMainDeck ? "現在のメインデッキ" : "現在のルリグデッキ"}</h3>
@@ -598,9 +499,77 @@ const handleSearch = () => {
           </li>
         ))}
       </ul>
+        <button onClick={handleAddSaba}>
+  鯖＃
+</button>
+        <button style={{ marginLeft: "16px" }} onClick={handleOutputClick}>
+        出力
+        </button>
+          <button style={{ marginLeft: "8px" }} onClick={() => setShowImportModal(true)}>
+  インポート
+</button>
     </>
   )}
   <img ref={imageRef} src={`${process.env.PUBLIC_URL}/images/template.png`} style={{ display: 'none' }} />
+</div>
+      </div>
+
+      <div className="table-container search-result">
+            {filtered.map((card, i) => (
+              <div key={i} className="card-item"> 
+                  <span
+                    style={{ cursor: "pointer" }}
+                    onClick={() =>
+                      adjustDeck(
+                        card["カード名"],
+                        1,
+                        card["カード種類"],
+                        card["ライフバースト"]
+                      )
+                    }
+                    className="cardname"
+                  >
+                    {card["カード名"]}
+                  </span>
+                  <a
+                    href={`https://www.takaratomy.co.jp/products/wixoss/library/card/card_detail.php?card_no=${card["カード番号"]}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ marginLeft: "0.3em", fontSize: "0.8em" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    ❔
+                  </a>
+                <div className="attr" style={{ marginTop: "0.3em" }}>
+      <div className="row">
+        <div className="type"><strong>種類:</strong> {card["カード種類"]}</div>
+        <div className="color"><strong>色:</strong> {card["色"]}</div>
+        <div><strong>レベル:</strong> {card["レベル"]}</div>
+        <div><strong>コスト:</strong><span dangerouslySetInnerHTML={{
+            __html: (card["コスト"] || "").replace(/<br>/g, " "),
+          }}></span></div>
+        <div><strong>パワー:</strong> {card["パワー"]}</div>
+        <div><strong>タイプ:</strong><span dangerouslySetInnerHTML={{
+            __html: (card["カードタイプ"] || "").replace(/<br>/g, " "),
+          }}></span></div>
+
+        <div><strong>タイミング:</strong><span dangerouslySetInnerHTML={{
+            __html: (card["使用タイミング"] || "").replace(/<br>/g, " "),
+          }}></span></div>
+      </div>
+      <div className="LB">
+        <div><strong>LB:</strong> {card["ライフバースト"]}</div>
+      </div>
+      <div className="text">
+        <span
+          dangerouslySetInnerHTML={{
+            __html: (card["効果テキスト"] || "").replace(/\n/g, "<br>"),
+          }}
+        />
+      </div>
+      </div>
+    </div>
+  ))}
 </div>
 
 
