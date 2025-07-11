@@ -399,9 +399,9 @@ const handleSearch = () => {
 
   return (
     <div className="App">
-      <header><h1>WIXOSS カード検索</h1></header>
       <div className="container">
       <div className="header-fixed">
+        <h1><img src="/images/logo.png" alt="WIXOSS カード検索" className="logo" /></h1>
         <div className="search-row">
           <input
             type="text"
@@ -697,7 +697,6 @@ const handleSearch = () => {
 
 
 </div>
-<footer>nebelTal</footer>
     </div>
   );
 }
