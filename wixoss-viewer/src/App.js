@@ -241,7 +241,7 @@ const handleSearch = () => {
       for (let i = 0; i < 10; i++) {
         const text = `${expandedLBList[i][0]}`;
         ctx.fillText(text, x, y + i * lineHeight);
-        if (expandedLBList[i][1].ライフバースト == "―") {
+        if (expandedLBList[i][1].ライフバースト === "―") {
           ctx.fillText("✓",x - 64,y + i * lineHeight,)
         }
       }
@@ -250,7 +250,7 @@ const handleSearch = () => {
       for (let i = 10; i < expandedLBList.length; i++) {
         const text = `${expandedLBList[i][0]}`;
         ctx.fillText(text, x, y + (i - 10) * lineHeight);
-        if (expandedLBList[i][1].ライフバースト == "―") {
+        if (expandedLBList[i][1].ライフバースト === "―") {
           ctx.fillText("✓",x - 64,y + (i - 10) * lineHeight,)
         }
       }
@@ -369,7 +369,6 @@ const handleSearch = () => {
   const adjustDeck = (cardName, delta, type, lb) => {
     const isLrig = isLrigCard(type);
     const setDeck = isLrig ? setDeckLrig : setDeckMain;
-    const deck = isLrig ? deckLrig : deckMain;
     const maxCount = isLrig ? 1 : 4;
 
     setDeck((prev) => {
@@ -401,7 +400,7 @@ const handleSearch = () => {
     <div className="App">
       <div className="container">
       <div className="header-fixed">
-        <h1><img src="/images/logo.png" alt="WIXOSS カード検索" className="logo" /></h1>
+        <h1><img src={`${process.env.PUBLIC_URL}/images/logo.png`} alt="WIXOSS カード検索" className="logo" /></h1>
         <div className="search-row">
           <input
             type="text"
