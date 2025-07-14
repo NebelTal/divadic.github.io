@@ -397,7 +397,7 @@ const handleSearch = () => {
 
 
   return (
-    <div className="App">
+    <div className="App" style={{ backgroundImage: `url(${process.env.PUBLIC_URL}/images/bg.jpg)` }}>
       <div className="container">
       <div className="header-fixed">
         <h1><img src={`${process.env.PUBLIC_URL}/images/logo.png`} alt="WIXOSS カード検索" className="logo" /></h1>
