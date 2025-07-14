@@ -1,8 +1,8 @@
 {
   "files": {
     "main.css": "/divadic.github.io/static/css/main.372eda21.chunk.css",
-    "main.js": "/divadic.github.io/static/js/main.c11a43c5.chunk.js",
-    "main.js.map": "/divadic.github.io/static/js/main.c11a43c5.chunk.js.map",
+    "main.js": "/divadic.github.io/static/js/main.24244a8e.chunk.js",
+    "main.js.map": "/divadic.github.io/static/js/main.24244a8e.chunk.js.map",
     "runtime~main.js": "/divadic.github.io/static/js/runtime~main.78489cd6.js",
     "runtime~main.js.map": "/divadic.github.io/static/js/runtime~main.78489cd6.js.map",
     "static/js/2.46b295d7.chunk.js": "/divadic.github.io/static/js/2.46b295d7.chunk.js",
@@ -10,7 +10,7 @@
     "static/js/3.68d536b4.chunk.js": "/divadic.github.io/static/js/3.68d536b4.chunk.js",
     "static/js/3.68d536b4.chunk.js.map": "/divadic.github.io/static/js/3.68d536b4.chunk.js.map",
     "index.html": "/divadic.github.io/index.html",
-    "precache-manifest.4be3bd0de56e9ab0a14372db29350b36.js": "/divadic.github.io/precache-manifest.4be3bd0de56e9ab0a14372db29350b36.js",
+    "precache-manifest.38c2e2c9ab3a63a3e6550865b4fc94c9.js": "/divadic.github.io/precache-manifest.38c2e2c9ab3a63a3e6550865b4fc94c9.js",
     "service-worker.js": "/divadic.github.io/service-worker.js",
     "static/css/main.372eda21.chunk.css.map": "/divadic.github.io/static/css/main.372eda21.chunk.css.map"
   }
