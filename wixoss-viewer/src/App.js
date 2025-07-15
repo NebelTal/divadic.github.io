@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FaSearch } from "react-icons/fa";
+import { MdChangeCircle } from "react-icons/md";
+import { LuMinimize2 } from "react-icons/lu";
+import { LuMaximize2 } from "react-icons/lu";
+import { FiExternalLink } from "react-icons/fi";
 import "./App.css";
 
 function App() {
@@ -438,18 +442,18 @@ const handleSearch = () => {
           ))}
         </div>
         <div className="deck-box">
-  <div className="deck-header" style={{ justifyContent: minimized ? "flex-end" : "space-between" }}>
+  <div className="deck-header" style={{ justifyContent: minimized ? "flex-end" : "space-between",marginBottom: minimized ? 0 : 20 }}>
     {!minimized && (
-      <h3>{showMainDeck ? "現在のメインデッキ" : "現在のルリグデッキ"}</h3>
+      <h3 className="deck-title">{showMainDeck ? "現在のメインデッキ" : "現在のルリグデッキ"}</h3>
     )}
     <div>
       {!minimized && (
-        <button onClick={() => setShowMainDeck(!showMainDeck)} className="deck-toggle-button">
-          {showMainDeck ? "ルリグ" : "メイン"}
+        <button onClick={() => setShowMainDeck(!showMainDeck)} className="deck-toggle-button icon-button">
+          <MdChangeCircle />
         </button>
       )}
-      <button onClick={() => setMinimized(!minimized)}>
-        {minimized ? "▲" : "▼"}
+      <button onClick={() => setMinimized(!minimized)} className="icon-button">
+        {minimized ? <LuMaximize2 /> : <LuMinimize2 />}
       </button>
     </div>
   </div>
@@ -461,7 +465,7 @@ const handleSearch = () => {
           ? `ルリグデッキ：${Object.values(deckLrig).reduce((acc, v) => acc + v.count, 0)}枚`
           : `メインデッキ：${Object.values(deckMain).reduce((acc, v) => acc + v.count, 0)}枚`}
       </p>
-      <p>枚数: {totalCount} {showMainDeck && `/ LB: ${lbCount}`}</p>
+      <p style={{margin: 0}}>枚数: {totalCount} {showMainDeck && `/ LB: ${lbCount}`}</p>
       <ul style={{ listStyle: "none", paddingLeft: 0 }}>
         {deckEntries.map(([name, info]) => (
           <li
@@ -470,6 +474,7 @@ const handleSearch = () => {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
+              marginBottom: 4
             }}
           >
             <span>{info.ライフバースト && info.ライフバースト !== "―" ? "★" : ""}{name}</span>
@@ -478,7 +483,8 @@ const handleSearch = () => {
                 onClick={() =>
                   adjustDeck(name, -1, info.カード種類, info.ライフバースト)
                 }
-                style={{ marginRight: 4 }}
+                style={{ marginRight: 4,paddingLeft: 6, paddingRight: 6, paddingTop: 3, paddingBottom: 3 , fontSize: 13}}
+                className="button button03"
               >
                 －
               </button>
@@ -489,7 +495,8 @@ const handleSearch = () => {
                     adjustDeck(name, 1, info.カード種類, info.ライフバースト)
                   }
                   disabled={info.count >= 4}
-                  style={{ marginLeft: 4, opacity: info.count >= 4 ? 0.5 : 1 }}
+                  style={{ marginLeft: 4, opacity: info.count >= 4 ? 0.5 : 1 ,paddingLeft: 6, paddingRight: 6, paddingTop: 3, paddingBottom: 3, fontSize: 13}}
+                  className="button button02"
                 >
                   ＋
                 </button>
@@ -498,26 +505,39 @@ const handleSearch = () => {
           </li>
         ))}
       </ul>
-        <button onClick={handleAddSaba}>
-  鯖＃
-</button>
-        <button style={{ marginLeft: "16px" }} onClick={handleOutputClick}>
-        出力
+      <div className="button-container">
+        <button onClick={handleAddSaba} className="button button02">
+          鯖＃追加
         </button>
-          <button style={{ marginLeft: "8px" }} onClick={() => setShowImportModal(true)}>
-  インポート
-</button>
+        <div>
+          <button onClick={handleOutputClick} className="button button01">
+            出力
+          </button>
+          <button style={{ marginLeft: "8px" }} onClick={() => setShowImportModal(true)} className="button button01">
+            インポート
+          </button>
+        </div>
+      </div>
     </>
   )}
-  <img ref={imageRef} src={`${process.env.PUBLIC_URL}/images/template.png`} style={{ display: 'none' }} />
+  <img ref={imageRef} src={`${process.env.PUBLIC_URL}/images/template.png`} style={{ display: 'none' }} alt="decklist-template" />
 </div>
       </div>
 
       <div className="table-container search-result">
             {filtered.map((card, i) => (
               <div key={i} className="card-item"> 
+                  <a
+                    href={`https://www.takaratomy.co.jp/products/wixoss/library/card/card_detail.php?card_no=${card["カード番号"]}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="cardname"
+                  >
+                    {card["カード名"]}<FiExternalLink style={{verticalAlign: "baseline",fontSize: 14, marginLeft: 4}}/>
+                  </a>
                   <span
-                    style={{ cursor: "pointer" }}
+                    style={{ marginLeft: 8, verticalAlign:"middle" }}
                     onClick={() =>
                       adjustDeck(
                         card["カード名"],
@@ -526,19 +546,24 @@ const handleSearch = () => {
                         card["ライフバースト"]
                       )
                     }
-                    className="cardname"
+                    className="button button02"
                   >
-                    {card["カード名"]}
+                    +1
                   </span>
-                  <a
-                    href={`https://www.takaratomy.co.jp/products/wixoss/library/card/card_detail.php?card_no=${card["カード番号"]}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ marginLeft: "0.3em", fontSize: "0.8em" }}
-                    onClick={(e) => e.stopPropagation()}
+                  <span
+                    style={{ marginLeft: 4,verticalAlign:"middle" }}
+                    onClick={() =>
+                      adjustDeck(
+                        card["カード名"],
+                        +4,
+                        card["カード種類"],
+                        card["ライフバースト"]
+                      )
+                    }
+                    className="button button02"
                   >
-                    ❔
-                  </a>
+                    +4
+                  </span>
                 <div className="attr" style={{ marginTop: "0.3em" }}>
       <div className="row">
         <div className="type"><strong>種類:</strong> {card["カード種類"]}</div>
@@ -653,6 +678,7 @@ const handleSearch = () => {
         placeholder="カード番号を1行ずつ貼り付けてください"
         style={{ width: "100%", height: "300px", whiteSpace: "pre", fontFamily: "monospace" }}
       />
+      <div style={{textAlign:"center"}}>
       <button
         onClick={() => {
           const lines = importText
@@ -687,9 +713,11 @@ const handleSearch = () => {
           setShowImportModal(false);
         }}
         style={{ marginTop: "10px", padding: "6px 12px", fontSize: "1em", cursor: "pointer" }}
+        className="button button01"
       >
         読み込み
       </button>
+      </div>
     </div>
   </div>
 )}
