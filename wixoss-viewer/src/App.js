@@ -357,7 +357,7 @@ const handleSearch = () => {
       }
     };
     const img = new Image();
-    img.src = templates[templateKey];
+    img.src = `${process.env.PUBLIC_URL}${templates[templateKey]}`;
     if (!img) return;
 
     if (!img.complete) {
@@ -710,7 +710,7 @@ const handleSearch = () => {
             name="template"
             value={key}
             checked={templateKey === key}
-            onChange={(e) => setTemplateKey(`${process.env.PUBLIC_URL}${e.target.value}`)}
+            onChange={(e) => setTemplateKey(e.target.value)}
           />
           {key === "default" ? "デフォルトテンプレート" : `テンプレート ${key.toUpperCase()}`}
         </label>
