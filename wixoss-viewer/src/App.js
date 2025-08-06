@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { FaSearch } from "react-icons/fa";
 import { MdChangeCircle } from "react-icons/md";
 import { LuMinimize2 } from "react-icons/lu";
@@ -25,8 +25,13 @@ function App() {
   const [showModal, setShowModal] = useState(false);
   const [outputText, setOutputText] = useState("");
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
   const [importText, setImportText] = useState("");
-  const imageRef = useRef(null);
+  const [templateKey, setTemplateKey] = useState("Ceremony");
+  const templates = {
+  Ceremony: "/images/template.png",
+  WC2025: "/images/template_wc2025.png",
+};
 
 const toHiragana = (str = "") =>
   str.replace(/[\u30a1-\u30f6]/g, ch =>
@@ -314,11 +319,33 @@ const handleSearch = () => {
     const nonLbList = getCardNumbers(Object.fromEntries(nonLbCards));
 
     const all = [...lrigList, ...lbList, ...nonLbList];
-    const cardList = {Lrig:deckLrig, LB:lbCards, nLB:nonLbCards};
-    const numList = {Lrig:lrigList, LB:lbList, nLB:nonLbList}
 
     setOutputText(all.join("\n"));
     setShowModal(true);
+  };
+
+  const handlePrintClick = () => {
+    const getCardNumbers = (deck) =>
+     Object.entries(deck).flatMap(([name, info]) =>
+        Array(info.count).fill(
+         cards.find((c) => c["カード名"] === name)?.["カード番号"] || "UNKNOWN"
+       )
+      );
+
+    // ルリグデッキのカード番号リスト取得
+    const lrigList = getCardNumbers(deckLrig);
+
+    const mainList = Object.entries(deckMain);
+    const lbCards = mainList.filter(([, info]) => info.ライフバースト && info.ライフバースト !== "―");
+    const nonLbCards = mainList.filter(([, info]) => !info.ライフバースト || info.ライフバースト === "―");
+
+    // メインデッキ・LBありのカード番号リスト取得
+    const lbList = getCardNumbers(Object.fromEntries(lbCards));
+    // メインデッキ・LBなしのカード番号リスト取得
+    const nonLbList = getCardNumbers(Object.fromEntries(nonLbCards));
+
+    const cardList = {Lrig:deckLrig, LB:lbCards, nLB:nonLbCards};
+    const numList = {Lrig:lrigList, LB:lbList, nLB:nonLbList}
 
     const openImageInNewTab = (imageUrl) => {
       if (!imageUrl) return;
@@ -329,7 +356,8 @@ const handleSearch = () => {
         alert("ポップアップブロックが有効かもしれません。");
       }
     };
-    const img = imageRef.current;
+    const img = new Image();
+    img.src = templates[templateKey];
     if (!img) return;
 
     if (!img.complete) {
@@ -510,7 +538,10 @@ const handleSearch = () => {
           鯖＃追加
         </button>
         <div>
-          <button onClick={handleOutputClick} className="button button01">
+          <button onClick={() => setShowPrintModal(true)}className="button button01">
+            印刷
+          </button>
+          <button style={{ marginLeft: "8px" }} onClick={handleOutputClick} className="button button01">
             出力
           </button>
           <button style={{ marginLeft: "8px" }} onClick={() => setShowImportModal(true)} className="button button01">
@@ -520,7 +551,6 @@ const handleSearch = () => {
       </div>
     </>
   )}
-  <img ref={imageRef} src={`${process.env.PUBLIC_URL}/images/template.png`} style={{ display: 'none' }} alt="decklist-template" />
 </div>
       </div>
 
@@ -644,6 +674,62 @@ const handleSearch = () => {
     </div>
   </div>
 )}
+
+{showPrintModal && (
+  <div style={{
+    position: "fixed",
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000
+  }}>
+    <div style={{
+      backgroundColor: "white",
+      padding: "20px",
+      borderRadius: "8px",
+      width: "80%",
+      maxWidth: "500px",
+      position: "relative"
+    }}>
+      <button onClick={() => setShowPrintModal(false)} style={{
+        position: "absolute",
+        top: "10px",
+        right: "10px",
+        background: "none",
+        border: "none",
+        fontSize: "1.2em",
+        cursor: "pointer"
+      }}>×</button>
+      <h3>プリント設定</h3>
+      {Object.entries(templates).map(([key, path]) => (
+        <label key={key} style={{ display: "block", marginBottom: "4px" }}>
+          <input
+            type="radio"
+            name="template"
+            value={key}
+            checked={templateKey === key}
+            onChange={(e) => setTemplateKey(e.target.value)}
+          />
+          {key === "default" ? "デフォルトテンプレート" : `テンプレート ${key.toUpperCase()}`}
+        </label>
+      ))}
+      <button
+  onClick={handlePrintClick}
+  style={{
+    marginTop: "10px",
+    padding: "6px 12px",
+    fontSize: "1em",
+    cursor: "pointer"
+  }}
+>
+  印刷
+</button>
+    </div>
+  </div>
+)}
+
 {showImportModal && (
   <div style={{
     position: "fixed",
