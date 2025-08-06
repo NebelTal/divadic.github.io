@@ -710,7 +710,7 @@ const handleSearch = () => {
             name="template"
             value={key}
             checked={templateKey === key}
-            onChange={(e) => setTemplateKey(e.target.value)}
+            onChange={(e) => setTemplateKey(`${process.env.PUBLIC_URL}${e.target.value}`)}
           />
           {key === "default" ? "デフォルトテンプレート" : `テンプレート ${key.toUpperCase()}`}
         </label>
