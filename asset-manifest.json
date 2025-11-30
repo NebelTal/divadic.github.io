@@ -1,17 +1,24 @@
 {
   "files": {
     "main.css": "/divadic.github.io/static/css/main.6dd7d401.chunk.css",
-    "main.js": "/divadic.github.io/static/js/main.14a45c16.chunk.js",
-    "main.js.map": "/divadic.github.io/static/js/main.14a45c16.chunk.js.map",
-    "runtime~main.js": "/divadic.github.io/static/js/runtime~main.125f146a.js",
-    "runtime~main.js.map": "/divadic.github.io/static/js/runtime~main.125f146a.js.map",
-    "static/js/2.4afb75b1.chunk.js": "/divadic.github.io/static/js/2.4afb75b1.chunk.js",
-    "static/js/2.4afb75b1.chunk.js.map": "/divadic.github.io/static/js/2.4afb75b1.chunk.js.map",
-    "static/js/3.8ba39429.chunk.js": "/divadic.github.io/static/js/3.8ba39429.chunk.js",
-    "static/js/3.8ba39429.chunk.js.map": "/divadic.github.io/static/js/3.8ba39429.chunk.js.map",
+    "main.js": "/divadic.github.io/static/js/main.b6d4314e.chunk.js",
+    "main.js.map": "/divadic.github.io/static/js/main.b6d4314e.chunk.js.map",
+    "runtime-main.js": "/divadic.github.io/static/js/runtime-main.1c56d7bd.js",
+    "runtime-main.js.map": "/divadic.github.io/static/js/runtime-main.1c56d7bd.js.map",
+    "static/js/2.8a761499.chunk.js": "/divadic.github.io/static/js/2.8a761499.chunk.js",
+    "static/js/2.8a761499.chunk.js.map": "/divadic.github.io/static/js/2.8a761499.chunk.js.map",
+    "static/js/3.c4b377ce.chunk.js": "/divadic.github.io/static/js/3.c4b377ce.chunk.js",
+    "static/js/3.c4b377ce.chunk.js.map": "/divadic.github.io/static/js/3.c4b377ce.chunk.js.map",
     "index.html": "/divadic.github.io/index.html",
-    "precache-manifest.11c51c6940bfc73828ab7a962018822f.js": "/divadic.github.io/precache-manifest.11c51c6940bfc73828ab7a962018822f.js",
+    "precache-manifest.2620e64a0187b04fc8d0f0a5c8e4b14b.js": "/divadic.github.io/precache-manifest.2620e64a0187b04fc8d0f0a5c8e4b14b.js",
     "service-worker.js": "/divadic.github.io/service-worker.js",
-    "static/css/main.6dd7d401.chunk.css.map": "/divadic.github.io/static/css/main.6dd7d401.chunk.css.map"
-  }
+    "static/css/main.6dd7d401.chunk.css.map": "/divadic.github.io/static/css/main.6dd7d401.chunk.css.map",
+    "static/js/2.8a761499.chunk.js.LICENSE.txt": "/divadic.github.io/static/js/2.8a761499.chunk.js.LICENSE.txt"
+  },
+  "entrypoints": [
+    "static/js/runtime-main.1c56d7bd.js",
+    "static/js/2.8a761499.chunk.js",
+    "static/css/main.6dd7d401.chunk.css",
+    "static/js/main.b6d4314e.chunk.js"
+  ]
 }
