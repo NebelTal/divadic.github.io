@@ -398,6 +398,272 @@ const handleSearch = () => {
     });
   };
 
+  // カード番号から画像URLを生成
+  const getCardImageUrl = (cardNumber) => {
+    if (!cardNumber || cardNumber === "UNKNOWN") return null;
+    // カード番号の形式例: WX25-CP1-046, WXDi-D03-010
+    // URL形式: https://www.takaratomy.co.jp/products/wixoss/library/images/card/WX25/WX25-CP1-046.jpg
+    const parts = cardNumber.split("-");
+    if (parts.length < 2) return null;
+    const prefix = parts[0]; // WX25, WXDi など
+    return `https://www.takaratomy.co.jp/products/wixoss/library/images/card/${prefix}/${cardNumber}.jpg`;
+  };
+
+  // デッキリスト画像を作成
+  const createDeckImage = async () => {
+    try {
+      // デッキが空の場合
+      const totalCards = Object.values(deckMain).reduce((acc, v) => acc + v.count, 0) +
+                        Object.values(deckLrig).reduce((acc, v) => acc + v.count, 0);
+      if (totalCards === 0) {
+        alert("デッキが空です。");
+        return;
+      }
+
+      // カード情報を取得（カード名からカード番号などを取得）
+      const getCardInfo = (cardName) => {
+        return cards.find((c) => c["カード名"] === cardName);
+      };
+
+      // ルリグデッキのカード情報を取得
+      const lrigEntries = Object.entries(deckLrig).map(([name, info]) => {
+        const card = getCardInfo(name);
+        return {
+          name,
+          count: info.count,
+          cardNumber: card?.["カード番号"] || null,
+          card,
+        };
+      });
+
+      // メインデッキのカード情報を取得
+      const mainEntries = Object.entries(deckMain).map(([name, info]) => {
+        const card = getCardInfo(name);
+        return {
+          name,
+          count: info.count,
+          cardNumber: card?.["カード番号"] || null,
+          card,
+          cardType: info.カード種類,
+          level: card?.["レベル"] || "0",
+        };
+      });
+
+      // メインデッキをシグニ（レベルごと）とスペルに分類
+      const signiByLevel = {};
+      const spells = [];
+
+      mainEntries.forEach((entry) => {
+        if (entry.cardType === "シグニ") {
+          const level = entry.level || "0";
+          if (!signiByLevel[level]) {
+            signiByLevel[level] = [];
+          }
+          signiByLevel[level].push(entry);
+        } else if (entry.cardType === "スペル") {
+          spells.push(entry);
+        }
+      });
+
+      // レベルでソート（数値として）
+      const sortedLevels = Object.keys(signiByLevel).sort((a, b) => {
+        const numA = parseInt(a) || 0;
+        const numB = parseInt(b) || 0;
+        return numA - numB;
+      });
+
+      // プレースホルダー画像を生成する関数
+      const createPlaceholderImage = (cardName) => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 240;
+        canvas.height = 336;
+        const ctx = canvas.getContext("2d");
+        
+        // 背景色
+        ctx.fillStyle = "#ccc";
+        ctx.fillRect(0, 0, 240, 336);
+        
+        // カード名を描画
+        ctx.fillStyle = "#333";
+        ctx.font = "14px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        
+        // テキストを複数行に分割
+        const maxWidth = 220;
+        const lineHeight = 18;
+        const chars = cardName.split("");
+        const lines = [];
+        let currentLine = "";
+        
+        for (let i = 0; i < chars.length; i++) {
+          const testLine = currentLine + chars[i];
+          const metrics = ctx.measureText(testLine);
+          if (metrics.width > maxWidth && currentLine.length > 0) {
+            lines.push(currentLine);
+            currentLine = chars[i];
+          } else {
+            currentLine = testLine;
+          }
+        }
+        if (currentLine.length > 0) {
+          lines.push(currentLine);
+        }
+        
+        // 中央に配置して描画
+        const startY = 168 - ((lines.length - 1) * lineHeight) / 2;
+        lines.forEach((line, index) => {
+          ctx.fillText(line, 120, startY + index * lineHeight);
+        });
+        
+        // 枠線
+        ctx.strokeStyle = "#ddd";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, 0, 240, 336);
+        
+        return canvas.toDataURL("image/png");
+      };
+
+      // カード情報からHTML要素を生成する関数
+      const createCardHtml = (entry, url) => {
+        const cardName = entry.name || "カード名不明";
+        const countHtml = entry.count > 1 ? `<div class="card-count">×${entry.count}</div>` : "";
+        
+        if (url) {
+          // 画像URLがある場合
+          const placeholderDataUrl = createPlaceholderImage(cardName);
+          return `<div class="card-wrapper"><img src="${url}" onerror="this.onerror=null; this.src='${placeholderDataUrl}';" />${countHtml}</div>`;
+        } else {
+          // 画像URLがない場合、プレースホルダー画像を使用
+          const placeholderDataUrl = createPlaceholderImage(cardName);
+          return `<div class="card-wrapper"><img src="${placeholderDataUrl}" />${countHtml}</div>`;
+        }
+      };
+
+      // HTMLを構築
+      let htmlContent = `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>デッキリスト画像</title>
+  <style>
+    body {
+      margin: 20px;
+      background: #f5f5f5;
+      font-family: sans-serif;
+    }
+    .section {
+      margin-bottom: 30px;
+    }
+    .section-title {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #000;
+    }
+    .cards-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .card-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+    .card-wrapper img {
+      width: 240px;
+      height: 336px;
+      display: block;
+      border: 1px solid #ddd;
+    }
+    .card-count {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+      font-size: 24px;
+      color: #000;
+    }
+    .card-placeholder {
+      width: 240px;
+      height: 336px;
+      background: #ccc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #333;
+      border: 1px solid #ddd;
+      padding: 10px;
+      box-sizing: border-box;
+      text-align: center;
+      font-size: 14px;
+      word-break: break-word;
+      line-height: 1.4;
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+`;
+
+      // ルリグデッキ
+      if (lrigEntries.length > 0) {
+        htmlContent += '<div class="section">';
+        htmlContent += '<div class="section-title">ルリグデッキ</div>';
+        htmlContent += '<div class="cards-container">';
+        for (const entry of lrigEntries) {
+          const url = entry.cardNumber ? getCardImageUrl(entry.cardNumber) : null;
+          htmlContent += createCardHtml(entry, url);
+        }
+        htmlContent += '</div></div>';
+      }
+
+      // メインデッキ（シグニとスペルをまとめる）
+      const signiTotalCount = Object.values(signiByLevel).reduce((acc, arr) => acc + arr.length, 0);
+      if (signiTotalCount > 0 || spells.length > 0) {
+        htmlContent += '<div class="section">';
+        htmlContent += '<div class="section-title">メインデッキ</div>';
+        htmlContent += '<div class="cards-container">';
+        
+        // シグニを表示（レベルごと）
+        for (const level of sortedLevels) {
+          for (const entry of signiByLevel[level]) {
+            const url = entry.cardNumber ? getCardImageUrl(entry.cardNumber) : null;
+            htmlContent += createCardHtml(entry, url);
+          }
+        }
+        
+        // スペルを表示
+        for (const entry of spells) {
+          const url = entry.cardNumber ? getCardImageUrl(entry.cardNumber) : null;
+          htmlContent += createCardHtml(entry, url);
+        }
+        
+        htmlContent += '</div></div>';
+      }
+
+      htmlContent += '</body></html>';
+
+      // 新しいタブで開く
+      const newTab = window.open();
+      if (newTab) {
+        newTab.document.open();
+        newTab.document.write(htmlContent);
+        newTab.document.close();
+      } else {
+        alert("ポップアップブロックが有効かもしれません。");
+      }
+    } catch (error) {
+      console.error("画像作成エラー:", error);
+      alert("画像の作成に失敗しました。");
+    }
+  };
+
   const adjustDeck = (cardName, delta, type, lb) => {
     const isLrig = isLrigCard(type);
     const setDeck = isLrig ? setDeckLrig : setDeckMain;
@@ -660,17 +926,29 @@ const handleSearch = () => {
         readOnly
         style={{ width: "100%", height: "300px", whiteSpace: "pre", fontFamily: "monospace" }}
       />
-      <button
-  onClick={handleCopy}
-  style={{
-    marginTop: "10px",
-    padding: "6px 12px",
-    fontSize: "1em",
-    cursor: "pointer"
-  }}
->
-  コピー
-</button>
+      <div style={{ marginTop: "10px", display: "flex", gap: "8px" }}>
+        <button
+          onClick={handleCopy}
+          style={{
+            padding: "6px 12px",
+            fontSize: "1em",
+            cursor: "pointer"
+          }}
+        >
+          コピー
+        </button>
+        <button
+          onClick={createDeckImage}
+          style={{
+            padding: "6px 12px",
+            fontSize: "1em",
+            cursor: "pointer"
+          }}
+          className="button button01"
+        >
+          画像作成
+        </button>
+      </div>
     </div>
   </div>
 )}
