@@ -3,6 +3,7 @@ const CARD_INDEX_FIELDS = [
   "カード名",
   "カード表示名",
   "注記",
+  "対応フォーマット",
   "カード種類",
   "カードタイプ",
   "色",
@@ -31,6 +32,10 @@ const matchesAllSelectedValues = (card, field, selectedValues, matcher) => {
 };
 
 const getCardDisplayName = (card) => card["カード表示名"] || card["カード名"] || "";
+const DECK_FORMAT_ALLSTAR = "allstar";
+const isCardAllowedInFormat = (card, deckFormat) =>
+  deckFormat === DECK_FORMAT_ALLSTAR ||
+  (Array.isArray(card["対応フォーマット"]) && card["対応フォーマット"].includes(deckFormat));
 const CARD_PRINTINGS_FIELD = "__printings";
 const CARD_MATCHED_PRINTING_FIELD = "__matchedPrintingNumber";
 const getCardPrintings = (card) => card[CARD_PRINTINGS_FIELD] || [card];
@@ -106,6 +111,7 @@ const filterCards = (
   searchFields,
   useRegex,
   filters = {},
+  deckFormat = DECK_FORMAT_ALLSTAR,
   cardsAreGrouped = false
 ) => {
   const keywords = query.trim().split(/\s+/).filter(Boolean);
@@ -126,6 +132,7 @@ const filterCards = (
   groupedSource.forEach((groupedCard) => {
     const matchingPrintings = getCardPrintings(groupedCard).filter(
       (card) =>
+        isCardAllowedInFormat(card, deckFormat) &&
         matchesAllSelectedValues(card, "色", selectedColors, (raw, value) => raw.includes(value)) &&
         matchesSelectedValues(card, "カード種類", selectedTypes, (raw, value) => raw === value) &&
         matchesSelectedValues(card, "レベル", selectedLevels, (raw, value) => raw === value) &&
@@ -198,7 +205,9 @@ self.onmessage = async ({ data }) => {
               ? card[field] && card[field] !== "―"
                 ? "有"
                 : "―"
-              : card[field] || "",
+              : field === "対応フォーマット"
+                ? Array.isArray(card[field]) ? card[field] : []
+                : card[field] || "",
           ])
         )
       );
@@ -217,6 +226,7 @@ self.onmessage = async ({ data }) => {
       data.searchFields,
       data.useRegex,
       data.filters,
+      data.deckFormat,
       true
     );
     self.postMessage({
