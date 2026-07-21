@@ -38,6 +38,7 @@ const isCardAllowedInFormat = (card, deckFormat) =>
   (Array.isArray(card["対応フォーマット"]) && card["対応フォーマット"].includes(deckFormat));
 const CARD_PRINTINGS_FIELD = "__printings";
 const CARD_MATCHED_PRINTING_FIELD = "__matchedPrintingNumber";
+const CARD_EFFECTLESS_LEVEL_ZERO_LRIG_FIELD = "__effectlessLevelZeroLrig";
 const getCardPrintings = (card) => card[CARD_PRINTINGS_FIELD] || [card];
 
 const CARD_GROUP_FIELDS = [
@@ -69,13 +70,42 @@ const normalizeCardGroupValue = (field, value = "") => {
   return normalized.replace(/\s+/g, "");
 };
 
-const getCardGroupKey = (card) =>
-  CARD_GROUP_FIELDS.map((field) =>
+const isEffectlessLevelZeroLrig = (card) => {
+  if (Object.prototype.hasOwnProperty.call(card, CARD_EFFECTLESS_LEVEL_ZERO_LRIG_FIELD)) {
+    return card[CARD_EFFECTLESS_LEVEL_ZERO_LRIG_FIELD] === true;
+  }
+
+  const cardKind = normalizeCardGroupValue("カード種類", card["カード種類"]);
+  const level = normalizeCardGroupValue("レベル", card["レベル"]);
+  const effect = normalizeCardGroupValue("効果テキスト", card["効果テキスト"]);
+  const lrigType = normalizeCardGroupValue("カードタイプ", card["カードタイプ"]);
+  const color = normalizeCardGroupValue("色", card["色"]);
+
+  return (
+    cardKind === "ルリグ" &&
+    level === "0" &&
+    ["", "-", "―"].includes(effect) &&
+    Boolean(lrigType) &&
+    Boolean(color)
+  );
+};
+
+const getCardGroupKey = (card) => {
+  if (isEffectlessLevelZeroLrig(card)) {
+    return [
+      "effectless-level-zero-lrig",
+      normalizeCardGroupValue("カードタイプ", card["カードタイプ"]),
+      normalizeCardGroupValue("色", card["色"]),
+    ].join("\u001f");
+  }
+
+  return CARD_GROUP_FIELDS.map((field) =>
     normalizeCardGroupValue(
       field,
       field === "カード表示名" ? getCardDisplayName(card) : card[field] || ""
     )
   ).join("\u001f");
+};
 
 const groupCardsByDisplayName = (sourceCards) => {
   const grouped = [];
@@ -197,8 +227,8 @@ self.onmessage = async ({ data }) => {
       if (!response.ok) throw new Error(`Card data request failed: ${response.status}`);
       cards = await response.json();
       groupedCards = groupCardsByDisplayName(cards);
-      const cardIndex = cards.map((card) =>
-        Object.fromEntries(
+      const cardIndex = cards.map((card) => ({
+        ...Object.fromEntries(
           CARD_INDEX_FIELDS.map((field) => [
             field,
             field === "ライフバースト"
@@ -209,8 +239,9 @@ self.onmessage = async ({ data }) => {
                 ? Array.isArray(card[field]) ? card[field] : []
                 : card[field] || "",
           ])
-        )
-      );
+        ),
+        [CARD_EFFECTLESS_LEVEL_ZERO_LRIG_FIELD]: isEffectlessLevelZeroLrig(card),
+      }));
       self.postMessage({ type: "ready", cardIndex, cardCount: cards.length });
     } catch (error) {
       self.postMessage({ type: "error", message: error.message });
