@@ -1,6 +1,8 @@
 const CARD_INDEX_FIELDS = [
   "カード番号",
   "カード名",
+  "カード表示名",
+  "注記",
   "カード種類",
   "カードタイプ",
   "色",
@@ -26,6 +28,68 @@ const matchesAllSelectedValues = (card, field, selectedValues, matcher) => {
   if (!selectedValues || selectedValues.length === 0) return true;
   const raw = normalizeFilterValue(card[field] || "");
   return selectedValues.every((value) => matcher(raw, value));
+};
+
+const getCardDisplayName = (card) => card["カード表示名"] || card["カード名"] || "";
+
+const CARD_GROUP_FIELDS = [
+  "カード表示名",
+  "カード種類",
+  "カードタイプ",
+  "色",
+  "レベル",
+  "コスト",
+  "パワー",
+  "効果テキスト",
+  "ライフバースト",
+  "使用タイミング",
+];
+
+const normalizeCardGroupValue = (field, value = "") => {
+  let normalized = value
+    .toString()
+    .trim()
+    .replace(/<br\s*\/?>/gi, "")
+    .normalize("NFKC");
+
+  if (field === "ライフバースト") {
+    normalized = normalized.replace(/^ライフバースト:/, "");
+  }
+  if (field === "効果テキスト" || field === "ライフバースト") {
+    normalized = normalized.replace(/\[([1-9])\]/g, "$1");
+  }
+  return normalized.replace(/\s+/g, "");
+};
+
+const getCardGroupKey = (card) =>
+  CARD_GROUP_FIELDS.map((field) =>
+    normalizeCardGroupValue(
+      field,
+      field === "カード表示名" ? getCardDisplayName(card) : card[field] || ""
+    )
+  ).join("\u001f");
+
+const groupCardsByDisplayName = (sourceCards) => {
+  const grouped = [];
+  const indexes = new Map();
+
+  sourceCards.forEach((card) => {
+    const groupKey = getCardGroupKey(card);
+    if (!indexes.has(groupKey)) {
+      indexes.set(groupKey, grouped.length);
+      grouped.push(card);
+      return;
+    }
+
+    const index = indexes.get(groupKey);
+    const current = grouped[index];
+    const displayName = getCardDisplayName(card);
+    const currentIsPlain = current["カード名"] === getCardDisplayName(current);
+    const candidateIsPlain = card["カード名"] === displayName;
+    if (candidateIsPlain && !currentIsPlain) grouped[index] = card;
+  });
+
+  return grouped;
 };
 
 const filterCards = (sourceCards, query, searchFields, useRegex, filters = {}) => {
@@ -58,9 +122,16 @@ const filterCards = (sourceCards, query, searchFields, useRegex, filters = {}) =
         const raw = (card[field] || "").toString();
         if (field === "カード名") {
           const reading = card["カードの読み方"] || "";
+          const nameValues = [
+            raw,
+            card["カード表示名"] || "",
+            card["注記"] || "",
+          ];
           return useRegex
-            ? regex.test(raw) || regex.test(reading)
-            : raw.toLowerCase().includes(keyword.toLowerCase()) ||
+            ? nameValues.some((value) => regex.test(value)) || regex.test(reading)
+            : nameValues.some((value) =>
+                value.toLowerCase().includes(keyword.toLowerCase())
+              ) ||
                 toHiragana(reading.toLowerCase()).includes(normalizedKeyword);
         }
         return useRegex ? regex.test(raw) : raw.toLowerCase().includes(keyword.toLowerCase());
@@ -68,13 +139,7 @@ const filterCards = (sourceCards, query, searchFields, useRegex, filters = {}) =
     })
   );
 
-  const seen = new Set();
-  return result.filter((card) => {
-    const name = card["カード名"];
-    if (seen.has(name)) return false;
-    seen.add(name);
-    return true;
-  });
+  return groupCardsByDisplayName(result);
 };
 
 let cards = [];
