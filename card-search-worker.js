@@ -31,6 +31,9 @@ const matchesAllSelectedValues = (card, field, selectedValues, matcher) => {
 };
 
 const getCardDisplayName = (card) => card["カード表示名"] || card["カード名"] || "";
+const CARD_PRINTINGS_FIELD = "__printings";
+const CARD_MATCHED_PRINTING_FIELD = "__matchedPrintingNumber";
+const getCardPrintings = (card) => card[CARD_PRINTINGS_FIELD] || [card];
 
 const CARD_GROUP_FIELDS = [
   "カード表示名",
@@ -77,22 +80,34 @@ const groupCardsByDisplayName = (sourceCards) => {
     const groupKey = getCardGroupKey(card);
     if (!indexes.has(groupKey)) {
       indexes.set(groupKey, grouped.length);
-      grouped.push(card);
+      grouped.push({ ...card, [CARD_PRINTINGS_FIELD]: [card] });
       return;
     }
 
     const index = indexes.get(groupKey);
     const current = grouped[index];
+    const printings = [...getCardPrintings(current), card];
     const displayName = getCardDisplayName(card);
     const currentIsPlain = current["カード名"] === getCardDisplayName(current);
     const candidateIsPlain = card["カード名"] === displayName;
-    if (candidateIsPlain && !currentIsPlain) grouped[index] = card;
+    if (candidateIsPlain && !currentIsPlain) {
+      grouped[index] = { ...card, [CARD_PRINTINGS_FIELD]: printings };
+    } else {
+      grouped[index] = { ...current, [CARD_PRINTINGS_FIELD]: printings };
+    }
   });
 
   return grouped;
 };
 
-const filterCards = (sourceCards, query, searchFields, useRegex, filters = {}) => {
+const filterCards = (
+  sourceCards,
+  query,
+  searchFields,
+  useRegex,
+  filters = {},
+  cardsAreGrouped = false
+) => {
   const keywords = query.trim().split(/\s+/).filter(Boolean);
   const activeFields = Object.keys(searchFields).filter((key) => searchFields[key]);
   const selectedColors = filters["色"] || [];
@@ -103,46 +118,68 @@ const filterCards = (sourceCards, query, searchFields, useRegex, filters = {}) =
 
   if ((keywords.length === 0 || activeFields.length === 0) && !hasActiveFilters) return [];
 
-  const result = sourceCards.filter((card) =>
-    matchesAllSelectedValues(card, "色", selectedColors, (raw, value) => raw.includes(value)) &&
-    matchesSelectedValues(card, "カード種類", selectedTypes, (raw, value) => raw === value) &&
-    matchesSelectedValues(card, "レベル", selectedLevels, (raw, value) => raw === value) &&
-    keywords.every((keyword) => {
-      const normalizedKeyword = toHiragana(keyword.toLowerCase());
-      let regex = null;
-      if (useRegex) {
-        try {
-          regex = new RegExp(keyword, "i");
-        } catch (error) {
-          return false;
-        }
-      }
+  const groupedSource = cardsAreGrouped
+    ? sourceCards
+    : groupCardsByDisplayName(sourceCards);
 
-      return activeFields.some((field) => {
-        const raw = (card[field] || "").toString();
-        if (field === "カード名") {
-          const reading = card["カードの読み方"] || "";
-          const nameValues = [
-            raw,
-            card["カード表示名"] || "",
-            card["注記"] || "",
-          ];
-          return useRegex
-            ? nameValues.some((value) => regex.test(value)) || regex.test(reading)
-            : nameValues.some((value) =>
-                value.toLowerCase().includes(keyword.toLowerCase())
-              ) ||
-                toHiragana(reading.toLowerCase()).includes(normalizedKeyword);
-        }
-        return useRegex ? regex.test(raw) : raw.toLowerCase().includes(keyword.toLowerCase());
-      });
-    })
-  );
+  const results = [];
+  groupedSource.forEach((groupedCard) => {
+    const matchingPrintings = getCardPrintings(groupedCard).filter(
+      (card) =>
+        matchesAllSelectedValues(card, "色", selectedColors, (raw, value) => raw.includes(value)) &&
+        matchesSelectedValues(card, "カード種類", selectedTypes, (raw, value) => raw === value) &&
+        matchesSelectedValues(card, "レベル", selectedLevels, (raw, value) => raw === value) &&
+        keywords.every((keyword) => {
+          const normalizedKeyword = toHiragana(keyword.toLowerCase());
+          let regex = null;
+          if (useRegex) {
+            try {
+              regex = new RegExp(keyword, "i");
+            } catch (error) {
+              return false;
+            }
+          }
 
-  return groupCardsByDisplayName(result);
+          return activeFields.some((field) => {
+            const raw = (card[field] || "").toString();
+            if (field === "カード名") {
+              const reading = card["カードの読み方"] || "";
+              const nameValues = [
+                raw,
+                card["カード表示名"] || "",
+                card["注記"] || "",
+              ];
+              return useRegex
+                ? nameValues.some((value) => regex.test(value)) || regex.test(reading)
+                : nameValues.some((value) =>
+                    value.toLowerCase().includes(keyword.toLowerCase())
+                  ) ||
+                    toHiragana(reading.toLowerCase()).includes(normalizedKeyword);
+            }
+            return useRegex
+              ? regex.test(raw)
+              : raw.toLowerCase().includes(keyword.toLowerCase());
+          });
+        })
+    );
+    if (matchingPrintings.length === 0) return;
+
+    const representativeNumber = groupedCard["カード番号"];
+    const matchedPrinting =
+      matchingPrintings.find(
+        (printing) => printing["カード番号"] === representativeNumber
+      ) || matchingPrintings[0];
+    results.push({
+      ...groupedCard,
+      [CARD_MATCHED_PRINTING_FIELD]: matchedPrinting["カード番号"],
+    });
+  });
+
+  return results;
 };
 
 let cards = [];
+let groupedCards = [];
 let currentResults = [];
 let currentRequestId = 0;
 
@@ -152,6 +189,7 @@ self.onmessage = async ({ data }) => {
       const response = await fetch(data.url);
       if (!response.ok) throw new Error(`Card data request failed: ${response.status}`);
       cards = await response.json();
+      groupedCards = groupCardsByDisplayName(cards);
       const cardIndex = cards.map((card) =>
         Object.fromEntries(
           CARD_INDEX_FIELDS.map((field) => [
@@ -174,11 +212,12 @@ self.onmessage = async ({ data }) => {
   if (data.type === "search") {
     currentRequestId = data.requestId;
     currentResults = filterCards(
-      cards,
+      groupedCards,
       data.query,
       data.searchFields,
       data.useRegex,
-      data.filters
+      data.filters,
+      true
     );
     self.postMessage({
       type: "search-result",
