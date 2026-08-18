@@ -1,14 +1,73 @@
-import React, { useState, useEffect } from "react";
-import { FaSearch } from "react-icons/fa";
-import { MdChangeCircle } from "react-icons/md";
-import { LuMinimize2 } from "react-icons/lu";
-import { LuMaximize2 } from "react-icons/lu";
-import { FiExternalLink } from "react-icons/fi";
+import React, { useMemo, useRef, useState, useEffect } from "react";
+import CardResultList from "./components/CardResultList";
+import DeckDrawer from "./components/DeckDrawer";
+import ImportModal from "./components/ImportModal";
+import ImportSummaryModal from "./components/ImportSummaryModal";
+import MobileActionPanel from "./components/MobileActionPanel";
+import OutputModal from "./components/OutputModal";
+import PrintModal from "./components/PrintModal";
+import SearchPanel from "./components/SearchPanel";
+import { createCardIndex } from "./utils/cardIndex";
+import { filterCards, normalizeFilterValue } from "./utils/search";
+import {
+  adjustDeckState,
+  buildDeckNumberLists,
+  createDeckItem,
+  getCardImageUrl,
+  getHighQualityCardImageUrl,
+  getDeckCount,
+  getLifeBurstCount,
+  getDeckItemName,
+  getLrigDeckLimit,
+  getLrigDeckLimitForAddition,
+  DECK_FORMATS,
+  importDeckFromCardNumbers,
+  isLrigCard,
+  prepareDeckImageEntries,
+  reorderDeckState,
+} from "./utils/deck";
+import { isCardAllowedInFormat } from "./utils/formats";
 import "./App.css";
 
+const MOBILE_LAYOUT_QUERY = "(max-width: 980px)";
+const SAVED_DECK_STORAGE_KEY = "wixoss-viewer.deck.v2";
+const SEARCH_PAGE_SIZE = 50;
+const CARD_SEARCH_WORKER_VERSION = "5";
+
+const matchesMobileLayout = () =>
+  typeof window !== "undefined" &&
+  typeof window.matchMedia === "function" &&
+  window.matchMedia(MOBILE_LAYOUT_QUERY).matches;
+
+const loadSavedDeck = () => {
+  if (typeof window === "undefined") {
+    return { deckMain: {}, deckLrig: {}, format: DECK_FORMATS.DIVA };
+  }
+
+  try {
+    const savedDeck = window.localStorage.getItem(SAVED_DECK_STORAGE_KEY);
+    if (!savedDeck) return { deckMain: {}, deckLrig: {}, format: DECK_FORMATS.DIVA };
+
+    const parsed = JSON.parse(savedDeck);
+    return {
+      deckMain: parsed?.deckMain || {},
+      deckLrig: parsed?.deckLrig || {},
+      format: parsed?.format || DECK_FORMATS.DIVA,
+    };
+  } catch (error) {
+    console.warn("Failed to restore saved deck", error);
+    return { deckMain: {}, deckLrig: {}, format: DECK_FORMATS.DIVA };
+  }
+};
+
 function App() {
+  const [initialDeck] = useState(loadSavedDeck);
   const [cards, setCards] = useState([]);
   const [filtered, setFiltered] = useState([]);
+  const [filteredTotal, setFilteredTotal] = useState(0);
+  const [cardsLoading, setCardsLoading] = useState(true);
+  const [cardsError, setCardsError] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [useRegex, setUseRegex] = useState(false);
   const [searchFields, setSearchFields] = useState({
@@ -18,25 +77,33 @@ function App() {
     カード種類: false,
     カードタイプ: false,
   });
-  const [deckMain, setDeckMain] = useState({});
-  const [deckLrig, setDeckLrig] = useState({});
+  const [attributeFilters, setAttributeFilters] = useState({
+    色: [],
+    カード種類: [],
+    レベル: [],
+  });
+  const [deckMain, setDeckMain] = useState(() => initialDeck.deckMain);
+  const [deckLrig, setDeckLrig] = useState(() => initialDeck.deckLrig);
+  const [deckFormat, setDeckFormat] = useState(() => initialDeck.format);
   const [showMainDeck, setShowMainDeck] = useState(true);
   const [minimized, setMinimized] = useState(false);
+  const [isMobileLayout, setIsMobileLayout] = useState(matchesMobileLayout);
   const [showModal, setShowModal] = useState(false);
   const [outputText, setOutputText] = useState("");
   const [showImportModal, setShowImportModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [importText, setImportText] = useState("");
+  const [importSummary, setImportSummary] = useState(null);
+  const [mobileView, setMobileView] = useState("search");
   const [templateKey, setTemplateKey] = useState("Ceremony");
+  const searchWorkerRef = useRef(null);
+  const searchRequestRef = useRef(0);
+  const fallbackCardsRef = useRef([]);
+  const fallbackResultsRef = useRef([]);
   const templates = {
   Ceremony: "/images/template.png",
   WC2025: "/images/template_wc2025.png",
 };
-
-const toHiragana = (str = "") =>
-  str.replace(/[\u30a1-\u30f6]/g, ch =>
-    String.fromCharCode(ch.charCodeAt(0) - 0x60)
-  );
 
   const fieldLabels = {
     カード名: "カード名",
@@ -51,61 +118,180 @@ const toHiragana = (str = "") =>
     使用タイミング: "タイミング",
   };
 
-  const isLrigCard = (type) =>
-    ["ルリグ", "アシストルリグ", "ピース", "アーツ"].includes(type);
-
   useEffect(() => {
-    fetch(`${process.env.PUBLIC_URL}/cards.json?t=${Date.now()}`)
-      .then((res) => res.json())
-      .then((data) => setCards(data));
+    let active = true;
+    let worker = null;
+
+    const handleWorkerMessage = ({ data }) => {
+      if (!active) return;
+
+      if (data.type === "ready") {
+        setCards(data.cardIndex);
+        setCardsLoading(false);
+        return;
+      }
+
+      if (data.type === "error") {
+        setCardsError(data.message || "カードデータを読み込めませんでした。");
+        setCardsLoading(false);
+        setSearchLoading(false);
+        return;
+      }
+
+      if (data.requestId !== searchRequestRef.current) return;
+
+      if (data.type === "search-result") {
+        setFiltered(data.cards);
+        setFilteredTotal(data.total);
+        setSearchLoading(false);
+      } else if (data.type === "more-results") {
+        setFiltered((current) => [...current, ...data.cards]);
+        setFilteredTotal(data.total);
+        setSearchLoading(false);
+      }
+    };
+
+    const initializeCards = async () => {
+      try {
+        const manifestResponse = await fetch(
+          `${process.env.PUBLIC_URL}/cards-manifest.json`,
+          { cache: "no-cache" }
+        );
+        if (!manifestResponse.ok) {
+          throw new Error(`Card manifest request failed: ${manifestResponse.status}`);
+        }
+        const manifest = await manifestResponse.json();
+        const cardsUrl = `${process.env.PUBLIC_URL}/${manifest.file}?v=${manifest.version}`;
+
+        if (typeof Worker !== "undefined") {
+          worker = new Worker(
+            `${process.env.PUBLIC_URL}/card-search-worker.js?v=${CARD_SEARCH_WORKER_VERSION}`
+          );
+          searchWorkerRef.current = worker;
+          worker.onmessage = handleWorkerMessage;
+          worker.onerror = () => {
+            if (!active) return;
+            setCardsError("検索処理を開始できませんでした。");
+            setCardsLoading(false);
+          };
+          worker.postMessage({ type: "init", url: cardsUrl });
+          return;
+        }
+
+        const cardsResponse = await fetch(cardsUrl);
+        if (!cardsResponse.ok) {
+          throw new Error(`Card data request failed: ${cardsResponse.status}`);
+        }
+        const fullCards = await cardsResponse.json();
+        if (!active) return;
+        fallbackCardsRef.current = fullCards;
+        setCards(createCardIndex(fullCards));
+        setCardsLoading(false);
+      } catch (error) {
+        if (!active) return;
+        setCardsError(error.message || "カードデータを読み込めませんでした。");
+        setCardsLoading(false);
+      }
+    };
+
+    initializeCards();
+    return () => {
+      active = false;
+      worker?.terminate();
+      searchWorkerRef.current = null;
+    };
   }, []);
 
-const handleSearch = () => {
-  const keywords = query.trim().split(/\s+/).filter(Boolean);
-  const activeFields = Object.keys(searchFields).filter((key) => searchFields[key]);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        SAVED_DECK_STORAGE_KEY,
+        JSON.stringify({ deckMain, deckLrig, format: deckFormat })
+      );
+    } catch (error) {
+      console.warn("Failed to save deck", error);
+    }
+  }, [deckMain, deckLrig, deckFormat]);
 
-  const result = cards.filter((card) =>
-    keywords.every((kw) => {
-      const normalizedKw = toHiragana(kw.toLowerCase());
-      const regex = useRegex ? new RegExp(kw, "i") : null;
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return undefined;
+    }
 
-      return activeFields.some((field) => {
-        const raw = (card[field] || "").toString();
+    const mediaQuery = window.matchMedia(MOBILE_LAYOUT_QUERY);
+    const syncMobileLayout = () => setIsMobileLayout(mediaQuery.matches);
+    syncMobileLayout();
 
-        // 「カード名」フィールドのときだけ、カード名＋読み方を両方チェック
-        if (field === "カード名" && !useRegex) {
-          // ① 元のカード名（部分一致、大文字小文字無視）
-          const hitName = raw.toLowerCase().includes(kw.toLowerCase());
-          // ② カードの読み方（カタカナ→ひらがな化して、ひらがな検索を可能に）
-          const reading = card["カードの読み方"] || "";
-          const hira = toHiragana(reading.toLowerCase());
-          const hitReading = hira.includes(normalizedKw);
-          return hitName || hitReading;
-        }
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", syncMobileLayout);
+      return () => mediaQuery.removeEventListener("change", syncMobileLayout);
+    }
 
-        // 正規表現モードなら、カード名／読み方いずれも regex.test でチェック
-        if (field === "カード名" && useRegex) {
-          const reading = card["カードの読み方"] || "";
-          return regex.test(raw) || regex.test(reading);
-        }
+    mediaQuery.addListener(syncMobileLayout);
+    return () => mediaQuery.removeListener(syncMobileLayout);
+  }, []);
 
-        // その他フィールドは従来通り
-        return useRegex
-          ? regex.test(raw)
-          : raw.toLowerCase().includes(kw.toLowerCase());
-      });
-    })
+const runSearch = (selectedFormat) => {
+  const requestId = searchRequestRef.current + 1;
+  searchRequestRef.current = requestId;
+  setSearchLoading(true);
+
+  if (searchWorkerRef.current) {
+    searchWorkerRef.current.postMessage({
+      type: "search",
+      requestId,
+      query,
+      searchFields,
+      useRegex,
+      filters: attributeFilters,
+      deckFormat: selectedFormat,
+      limit: SEARCH_PAGE_SIZE,
+    });
+    return;
+  }
+
+  const results = filterCards(
+    fallbackCardsRef.current,
+    query,
+    searchFields,
+    useRegex,
+    attributeFilters,
+    selectedFormat
   );
-
-  // 重複カード名を除いてセット
-  const seen = new Set();
-  const unique = result.filter((c) => {
-    if (seen.has(c["カード名"])) return false;
-    seen.add(c["カード名"]);
-    return true;
-  });
-  setFiltered(unique);
+  fallbackResultsRef.current = results;
+  setFiltered(results.slice(0, SEARCH_PAGE_SIZE));
+  setFilteredTotal(results.length);
+  setSearchLoading(false);
 };
+
+  const handleSearch = () => runSearch(deckFormat);
+
+  const handleDeckFormatChange = (nextFormat) => {
+    setDeckFormat(nextFormat);
+    runSearch(nextFormat);
+  };
+
+  const handleLoadMoreResults = () => {
+    if (searchLoading || filtered.length >= filteredTotal) return;
+    setSearchLoading(true);
+
+    if (searchWorkerRef.current) {
+      searchWorkerRef.current.postMessage({
+        type: "load-more",
+        requestId: searchRequestRef.current,
+        offset: filtered.length,
+        limit: SEARCH_PAGE_SIZE,
+      });
+      return;
+    }
+
+    const nextCards = fallbackResultsRef.current.slice(
+      filtered.length,
+      filtered.length + SEARCH_PAGE_SIZE
+    );
+    setFiltered((current) => [...current, ...nextCards]);
+    setSearchLoading(false);
+  };
 
 
   const handleKeyDown = (e) => {
@@ -114,6 +300,50 @@ const handleSearch = () => {
 
   const toggleField = (field) => {
     setSearchFields((prev) => ({ ...prev, [field]: !prev[field] }));
+  };
+
+  const filterOptions = useMemo(() => {
+    const colorOrder = ["白", "青", "赤", "緑", "黒", "無色"];
+    const collect = (field) =>
+      Array.from(
+        new Set(
+          cards
+            .map((card) => normalizeFilterValue(card[field] || ""))
+            .filter(Boolean)
+        )
+      ).sort((a, b) => a.localeCompare(b, "ja"));
+
+    return {
+      色: colorOrder.filter((color) =>
+        cards.some((card) => (card["色"] || "").toString().includes(color))
+      ),
+      カード種類: collect("カード種類"),
+      レベル: collect("レベル").sort((a, b) => {
+        const numA = Number.parseInt(a, 10);
+        const numB = Number.parseInt(b, 10);
+
+        if (Number.isNaN(numA) || Number.isNaN(numB)) {
+          return a.localeCompare(b, "ja");
+        }
+
+        return numA - numB;
+      }),
+    };
+  }, [cards]);
+
+  const toggleAttributeFilter = (field, value) => {
+    setAttributeFilters((prev) => {
+      const selected = prev[field] || [];
+      const next = selected.includes(value)
+        ? selected.filter((item) => item !== value)
+        : [...selected, value];
+
+      return { ...prev, [field]: next };
+    });
+  };
+
+  const clearAttributeFilters = () => {
+    setAttributeFilters({ 色: [], カード種類: [], レベル: [] });
   };
 
   const drawDeckOnTemplate = (
@@ -206,15 +436,17 @@ const handleSearch = () => {
     // 最初の6枚
     x = 352;
     y = 619;
-    const lrigKeys = Object.keys(cardList.Lrig);
+    const lrigNames = Object.entries(cardList.Lrig).map(([cardNumber, info]) =>
+      getDeckItemName(cardNumber, info, cards)
+    );
     for (let i = 0; i < 6; i++) {
-      const text = `${lrigKeys[i]}`;
+      const text = `${lrigNames[i]}`;
       ctx.fillText(text, x, y + i * lineHeight);
     }
     // 次の6枚
     x = 1026;
-    for (let i = 6; i < lrigKeys.length; i++) {
-      const text = `${lrigKeys[i]}`;
+    for (let i = 6; i < lrigNames.length; i++) {
+      const text = `${lrigNames[i]}`;
       ctx.fillText(text, x, y + (i - 6) * lineHeight);
     }
 
@@ -225,7 +457,9 @@ const handleSearch = () => {
     if (diff === 0){
       x = 450;
       y = 1040;
-      const lbList = cardList.LB.flatMap(([name, attr]) => Array(attr.count).fill(name));
+      const lbList = cardList.LB.flatMap(([cardNumber, attr]) =>
+        Array(attr.count).fill(getDeckItemName(cardNumber, attr, cards))
+      );
       for (let i = 0; i < 10; i++) {
         const text = `${lbList[i]}`;
         ctx.fillText(text, x, y + i * lineHeight);
@@ -239,11 +473,11 @@ const handleSearch = () => {
     } else {
       x = 450;
       y = 1040;
-      expandedLBList = cardList.LB.flatMap(([name, info]) =>
-        Array(info.count).fill([name, info])
+      expandedLBList = cardList.LB.flatMap(([cardNumber, info]) =>
+        Array(info.count).fill([getDeckItemName(cardNumber, info, cards), info])
       );
-      expandedNLBList = cardList.nLB.flatMap(([name, info]) =>
-        Array(info.count).fill([name, info])
+      expandedNLBList = cardList.nLB.flatMap(([cardNumber, info]) =>
+        Array(info.count).fill([getDeckItemName(cardNumber, info, cards), info])
       );
       const moveNLBs = expandedNLBList.splice(0,diff);
       expandedLBList.push(...moveNLBs);
@@ -270,7 +504,9 @@ const handleSearch = () => {
     y = 1647;
     if (diff === 0) {
       // 最初の10枚
-      const nlbList = cardList.nLB.flatMap(([name, attr]) => Array(attr.count).fill(name));
+      const nlbList = cardList.nLB.flatMap(([cardNumber, attr]) =>
+        Array(attr.count).fill(getDeckItemName(cardNumber, attr, cards))
+      );
       for (let i = 0; i < 10; i++) {
         const text = `${nlbList[i]}`;
         ctx.fillText(text, x, y + i * lineHeight);
@@ -299,53 +535,15 @@ const handleSearch = () => {
 
   // デッキリストからカード名でカード番号を引き当てる関数
   const handleOutputClick = () => {
-    const getCardNumbers = (deck) =>
-     Object.entries(deck).flatMap(([name, info]) =>
-        Array(info.count).fill(
-         cards.find((c) => c["カード名"] === name)?.["カード番号"] || "UNKNOWN"
-       )
-      );
-
-    // ルリグデッキのカード番号リスト取得
-    const lrigList = getCardNumbers(deckLrig);
-
-    const mainList = Object.entries(deckMain);
-    const lbCards = mainList.filter(([, info]) => info.ライフバースト && info.ライフバースト !== "―");
-    const nonLbCards = mainList.filter(([, info]) => !info.ライフバースト || info.ライフバースト === "―");
-
-    // メインデッキ・LBありのカード番号リスト取得
-    const lbList = getCardNumbers(Object.fromEntries(lbCards));
-    // メインデッキ・LBなしのカード番号リスト取得
-    const nonLbList = getCardNumbers(Object.fromEntries(nonLbCards));
-
-    const all = [...lrigList, ...lbList, ...nonLbList];
+    const { numList } = buildDeckNumberLists(deckLrig, deckMain, cards);
+    const all = [...numList.Lrig, ...numList.LB, ...numList.nLB];
 
     setOutputText(all.join("\n"));
     setShowModal(true);
   };
 
   const handlePrintClick = () => {
-    const getCardNumbers = (deck) =>
-     Object.entries(deck).flatMap(([name, info]) =>
-        Array(info.count).fill(
-         cards.find((c) => c["カード名"] === name)?.["カード番号"] || "UNKNOWN"
-       )
-      );
-
-    // ルリグデッキのカード番号リスト取得
-    const lrigList = getCardNumbers(deckLrig);
-
-    const mainList = Object.entries(deckMain);
-    const lbCards = mainList.filter(([, info]) => info.ライフバースト && info.ライフバースト !== "―");
-    const nonLbCards = mainList.filter(([, info]) => !info.ライフバースト || info.ライフバースト === "―");
-
-    // メインデッキ・LBありのカード番号リスト取得
-    const lbList = getCardNumbers(Object.fromEntries(lbCards));
-    // メインデッキ・LBなしのカード番号リスト取得
-    const nonLbList = getCardNumbers(Object.fromEntries(nonLbCards));
-
-    const cardList = {Lrig:deckLrig, LB:lbCards, nLB:nonLbCards};
-    const numList = {Lrig:lrigList, LB:lbList, nLB:nonLbList}
+    const { cardList, numList } = buildDeckNumberLists(deckLrig, deckMain, cards);
 
     const openImageInNewTab = (imageUrl) => {
       if (!imageUrl) return;
@@ -377,14 +575,14 @@ const handleSearch = () => {
       alert("カード WXDi-D03-020 が見つかりませんでした。");
       return;
     }
+    if (!isCardAllowedInFormat(card, deckFormat)) {
+      alert("選択中のフォーマットでは使用できないカードです。");
+      return;
+    }
 
     setDeckMain((prev) => ({
       ...prev,
-      [card["カード名"]]: {
-        count: 4,
-        ライフバースト: card["ライフバースト"],
-        カード種類: card["カード種類"]
-      }
+      [card["カード番号"]]: createDeckItem(card, 4)
     }));
   };
 
@@ -398,79 +596,195 @@ const handleSearch = () => {
     });
   };
 
-  // カード番号から画像URLを生成
-  const getCardImageUrl = (cardNumber) => {
-    if (!cardNumber || cardNumber === "UNKNOWN") return null;
-    // カード番号の形式例: WX25-CP1-046, WXDi-D03-010
-    // URL形式: https://www.takaratomy.co.jp/products/wixoss/library/images/card/WX25/WX25-CP1-046.jpg
-    const parts = cardNumber.split("-");
-    if (parts.length < 2) return null;
-    const prefix = parts[0]; // WX25, WXDi など
-    return `https://www.takaratomy.co.jp/products/wixoss/library/images/card/${prefix}/${cardNumber}.jpg`;
+  const escapeHtml = (value = "") =>
+    value
+      .toString()
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+  const createDeckCardImagePage = () => {
+    const deckEntries = [
+      ...Object.entries(deckLrig),
+      ...Object.entries(deckMain),
+    ];
+
+    const uniqueCards = [];
+    const seen = new Set();
+
+    for (const [cardNumber, info] of deckEntries) {
+      const imageUrl = getHighQualityCardImageUrl(cardNumber);
+      if (!imageUrl || seen.has(cardNumber)) continue;
+
+      seen.add(cardNumber);
+      uniqueCards.push({
+        name: getDeckItemName(cardNumber, info, cards),
+        cardNumber,
+        imageUrl,
+      });
+    }
+
+    if (uniqueCards.length === 0) {
+      alert("デッキにカードがありません。");
+      return;
+    }
+    const imageCards = uniqueCards
+      .map(
+        ({ name, cardNumber, imageUrl }) => `
+          <article class="card">
+            <a href="${imageUrl}" download="${escapeHtml(cardNumber)}.jpg" target="_blank" rel="noopener noreferrer">
+              <img src="${imageUrl}" alt="${escapeHtml(name)}" loading="lazy" />
+            </a>
+            <div class="meta">
+              <strong>${escapeHtml(name)}</strong>
+              <span>${escapeHtml(cardNumber)}</span>
+              <a href="${imageUrl}" download="${escapeHtml(cardNumber)}.jpg" target="_blank" rel="noopener noreferrer">画像を開く / 保存</a>
+            </div>
+          </article>`
+      )
+      .join("");
+
+    const linkList = uniqueCards
+      .map(
+        ({ name, cardNumber, imageUrl }) =>
+          `<li><a href="${imageUrl}" download="${escapeHtml(cardNumber)}.jpg" target="_blank" rel="noopener noreferrer">${escapeHtml(cardNumber)} ${escapeHtml(name)}</a></li>`
+      )
+      .join("");
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>デッキ採用カード画像</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #eef3f8;
+      color: #172033;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    header {
+      max-width: 1120px;
+      margin: 0 auto 20px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 24px;
+    }
+    p {
+      margin: 0 0 8px;
+      color: #5c6b80;
+      line-height: 1.6;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+    .card {
+      padding: 12px;
+      border: 1px solid #dce5ef;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.92);
+      box-shadow: 0 8px 24px rgba(22, 37, 62, 0.08);
+    }
+    img {
+      display: block;
+      width: 100%;
+      border-radius: 6px;
+    }
+    .meta {
+      display: grid;
+      gap: 4px;
+      margin-top: 10px;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .meta span {
+      color: #5c6b80;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+    a {
+      color: #2563c9;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    details {
+      max-width: 1120px;
+      margin: 18px auto 0;
+      color: #5c6b80;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>デッキ採用カード画像</h1>
+    <p>同じカードが複数枚入っていても、カード番号ごとに1枚だけ表示しています。</p>
+    <p>ブラウザの制限により自動ZIP化はできないため、画像または「画像を開く / 保存」から保存してください。</p>
+    <p>対象: ${uniqueCards.length} 種類</p>
+  </header>
+  <main class="grid">
+    ${imageCards}
+  </main>
+  <details>
+    <summary>画像URL一覧</summary>
+    <ol>${linkList}</ol>
+  </details>
+</body>
+</html>`;
+
+    const newTab = window.open();
+    if (newTab) {
+      newTab.document.open();
+      newTab.document.write(htmlContent);
+      newTab.document.close();
+    } else {
+      alert("ポップアップブロックが有効かもしれません。");
+    }
+  };
+
+  const handleImportDeck = () => {
+    const lines = importText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const imported = importDeckFromCardNumbers(lines, cards, deckFormat);
+    setDeckMain(imported.deckMain);
+    setDeckLrig(imported.deckLrig);
+    setShowImportModal(false);
+    setImportSummary(imported.summary);
+  };
+
+  const handleClearDeck = () => {
+    setDeckMain({});
+    setDeckLrig({});
+    setMobileView("search");
   };
 
   // デッキリスト画像を作成
   const createDeckImage = async () => {
     try {
-      // デッキが空の場合
-      const totalCards = Object.values(deckMain).reduce((acc, v) => acc + v.count, 0) +
-                        Object.values(deckLrig).reduce((acc, v) => acc + v.count, 0);
+      const {
+        lrigEntries,
+        signiByLevel,
+        spells,
+        others,
+        sortedLevels,
+        totalCards,
+      } = prepareDeckImageEntries(deckLrig, deckMain, cards);
+
       if (totalCards === 0) {
         alert("デッキが空です。");
         return;
       }
-
-      // カード情報を取得（カード名からカード番号などを取得）
-      const getCardInfo = (cardName) => {
-        return cards.find((c) => c["カード名"] === cardName);
-      };
-
-      // ルリグデッキのカード情報を取得
-      const lrigEntries = Object.entries(deckLrig).map(([name, info]) => {
-        const card = getCardInfo(name);
-        return {
-          name,
-          count: info.count,
-          cardNumber: card?.["カード番号"] || null,
-          card,
-        };
-      });
-
-      // メインデッキのカード情報を取得
-      const mainEntries = Object.entries(deckMain).map(([name, info]) => {
-        const card = getCardInfo(name);
-        return {
-          name,
-          count: info.count,
-          cardNumber: card?.["カード番号"] || null,
-          card,
-          cardType: info.カード種類,
-          level: card?.["レベル"] || "0",
-        };
-      });
-
-      // メインデッキをシグニ（レベルごと）とスペルに分類
-      const signiByLevel = {};
-      const spells = [];
-
-      mainEntries.forEach((entry) => {
-        if (entry.cardType === "シグニ") {
-          const level = entry.level || "0";
-          if (!signiByLevel[level]) {
-            signiByLevel[level] = [];
-          }
-          signiByLevel[level].push(entry);
-        } else if (entry.cardType === "スペル") {
-          spells.push(entry);
-        }
-      });
-
-      // レベルでソート（数値として）
-      const sortedLevels = Object.keys(signiByLevel).sort((a, b) => {
-        const numA = parseInt(a) || 0;
-        const numB = parseInt(b) || 0;
-        return numA - numB;
-      });
 
       // プレースホルダー画像を生成する関数
       const createPlaceholderImage = (cardName) => {
@@ -625,7 +939,7 @@ const handleSearch = () => {
 
       // メインデッキ（シグニとスペルをまとめる）
       const signiTotalCount = Object.values(signiByLevel).reduce((acc, arr) => acc + arr.length, 0);
-      if (signiTotalCount > 0 || spells.length > 0) {
+      if (signiTotalCount > 0 || spells.length > 0 || others.length > 0) {
         htmlContent += '<div class="section">';
         htmlContent += '<div class="section-title">メインデッキ</div>';
         htmlContent += '<div class="cards-container">';
@@ -640,6 +954,11 @@ const handleSearch = () => {
         
         // スペルを表示
         for (const entry of spells) {
+          const url = entry.cardNumber ? getCardImageUrl(entry.cardNumber) : null;
+          htmlContent += createCardHtml(entry, url);
+        }
+
+        for (const entry of others) {
           const url = entry.cardNumber ? getCardImageUrl(entry.cardNumber) : null;
           htmlContent += createCardHtml(entry, url);
         }
@@ -664,426 +983,214 @@ const handleSearch = () => {
     }
   };
 
-  const adjustDeck = (cardName, delta, type, lb) => {
+  const adjustDeck = (cardNumber, delta, type, lb, name, groupKey) => {
+    const card = cardByNumber.get(cardNumber);
+    if (delta > 0 && card && !isCardAllowedInFormat(card, deckFormat)) {
+      return;
+    }
+
     const isLrig = isLrigCard(type);
     const setDeck = isLrig ? setDeckLrig : setDeckMain;
-    const maxCount = isLrig ? 1 : 4;
 
     setDeck((prev) => {
-      const prevCount = prev[cardName]?.count || 0;
-      const newCount = Math.max(0, Math.min(maxCount, prevCount + delta));
-      if (newCount === 0) {
-        const copy = { ...prev };
-        delete copy[cardName];
-        return copy;
+      if (delta > 0 && isLrig && !prev[cardNumber]) {
+        const limit = getLrigDeckLimitForAddition(prev, type);
+        if (getDeckCount(prev) >= limit) {
+          return prev;
+        }
       }
-      return {
-        ...prev,
-        [cardName]: { count: newCount, ライフバースト: lb, カード種類: type },
-      };
+
+      return adjustDeckState(prev, cardNumber, delta, type, lb, name, groupKey);
     });
+  };
+
+  const reorderDeck = (sourceCardNumber, targetCardNumber) => {
+    const setDeck = showMainDeck ? setDeckMain : setDeckLrig;
+    setDeck((current) =>
+      reorderDeckState(current, sourceCardNumber, targetCardNumber)
+    );
   };
 
   const currentDeck = showMainDeck ? deckMain : deckLrig;
   const deckEntries = Object.entries(currentDeck);
-  const totalCount = deckEntries.reduce((acc, [, v]) => acc + v.count, 0);
-  const lbCount = deckEntries.reduce(
-  (acc, [, v]) =>
-    (v.ライフバースト && v.ライフバースト !== "―") ? acc + v.count : acc,
-  0
-);
+  const totalCount = getDeckCount(currentDeck);
+  const lbCount = getLifeBurstCount(currentDeck);
+  const mainCount = getDeckCount(deckMain);
+  const lrigCount = getDeckCount(deckLrig);
+  const lrigDeckLimit = getLrigDeckLimit(deckLrig);
+  const deckCounts = useMemo(() => {
+    const counts = {};
+
+    for (const [cardNumber, info] of [...Object.entries(deckMain), ...Object.entries(deckLrig)]) {
+      counts[cardNumber] = (counts[cardNumber] || 0) + info.count;
+    }
+
+    return counts;
+  }, [deckMain, deckLrig]);
+  const cardByNumber = useMemo(
+    () => new Map(cards.map((card) => [card["カード番号"], card])),
+    [cards]
+  );
+
+  const switchMobileView = (view) => {
+    setMobileView(view);
+  };
+
+  const canAddCardToDeck = (card) => {
+    if (!isCardAllowedInFormat(card, deckFormat)) {
+      return false;
+    }
+
+    if (!isLrigCard(card["カード種類"])) {
+      return true;
+    }
+
+    if (deckLrig[card["カード番号"]]) {
+      return true;
+    }
+
+    const limit = getLrigDeckLimitForAddition(deckLrig, card["カード種類"]);
+    return lrigCount < limit;
+  };
 
 
   return (
     <div className="App" style={{ backgroundImage: `url(${process.env.PUBLIC_URL}/images/bg.jpg)` }}>
-      <div className="container">
-      <div className="header-fixed">
-        <h1><img src={`${process.env.PUBLIC_URL}/images/logo.png`} alt="WIXOSS カード検索" className="logo" /></h1>
-        <div className="search-row">
-          <input
-            type="text"
-            placeholder="検索..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="search-textbox"
-          />
-          <button onClick={handleSearch} className="search-button"><FaSearch /></button>
-        </div>
-        <div>
-        <label className="toggle-regex">
-          <input
-            type="checkbox"
-            checked={useRegex}
-            onChange={() => setUseRegex(!useRegex)}
-          /> 正規表現を使う
-        </label>
-        </div>
-
-        <div className="field-controls searchfield-check">
-          {Object.keys(searchFields).map((field) => (
-            <>
-            <input
-                id={field}
-                type="checkbox"
-                checked={searchFields[field]}
-                onChange={() => toggleField(field)}
-              />
-            <label key={field} htmlFor={field}className="searchfield-checkbox">
-              {fieldLabels[field] || field}
-            </label>
-            </>
-          ))}
-        </div>
-        <div className="deck-box">
-  <div className="deck-header" style={{ justifyContent: minimized ? "flex-end" : "space-between",marginBottom: minimized ? 0 : 20 }}>
-    {!minimized && (
-      <h3 className="deck-title">{showMainDeck ? "現在のメインデッキ" : "現在のルリグデッキ"}</h3>
-    )}
-    <div>
-      {!minimized && (
-        <button onClick={() => setShowMainDeck(!showMainDeck)} className="deck-toggle-button icon-button">
-          <MdChangeCircle />
-        </button>
-      )}
-      <button onClick={() => setMinimized(!minimized)} className="icon-button">
-        {minimized ? <LuMaximize2 /> : <LuMinimize2 />}
-      </button>
-    </div>
-  </div>
-
-  {!minimized && (
-    <>
-      <p style={{ margin: 0, fontSize: "1em" }}>
-        {showMainDeck
-          ? `ルリグデッキ：${Object.values(deckLrig).reduce((acc, v) => acc + v.count, 0)}枚`
-          : `メインデッキ：${Object.values(deckMain).reduce((acc, v) => acc + v.count, 0)}枚`}
-      </p>
-      <p style={{margin: 0}}>枚数: {totalCount} {showMainDeck && `/ LB: ${lbCount}`}</p>
-      <ul style={{ listStyle: "none", paddingLeft: 0 }}>
-        {deckEntries.map(([name, info]) => (
-          <li
-            key={name}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 4
-            }}
-          >
-            <span>{info.ライフバースト && info.ライフバースト !== "―" ? "★" : ""}{name}</span>
-            <span style={{ marginLeft: "0.5em", display: "flex", alignItems: "center" }}>
-              <button
-                onClick={() =>
-                  adjustDeck(name, -1, info.カード種類, info.ライフバースト)
-                }
-                style={{ marginRight: 4,paddingLeft: 6, paddingRight: 6, paddingTop: 3, paddingBottom: 3 , fontSize: 13}}
-                className="button button03"
-              >
-                －
-              </button>
-              <span>×{info.count}</span>
-              {!isLrigCard(info.カード種類) && (
-                <button
-                  onClick={() =>
-                    adjustDeck(name, 1, info.カード種類, info.ライフバースト)
-                  }
-                  disabled={info.count >= 4}
-                  style={{ marginLeft: 4, opacity: info.count >= 4 ? 0.5 : 1 ,paddingLeft: 6, paddingRight: 6, paddingTop: 3, paddingBottom: 3, fontSize: 13}}
-                  className="button button02"
-                >
-                  ＋
-                </button>
-              )}
-            </span>
-          </li>
-        ))}
-      </ul>
-      <div className="button-container">
-        <button onClick={handleAddSaba} className="button button02">
-          鯖＃追加
-        </button>
-        <div>
-          <button onClick={() => setShowPrintModal(true)}className="button button01">
-            印刷
-          </button>
-          <button style={{ marginLeft: "8px" }} onClick={handleOutputClick} className="button button01">
-            出力
-          </button>
-          <button style={{ marginLeft: "8px" }} onClick={() => setShowImportModal(true)} className="button button01">
-            インポート
-          </button>
-        </div>
-      </div>
-    </>
-  )}
-</div>
-      </div>
-
-      <div className="table-container search-result">
-            {filtered.map((card, i) => (
-              <div key={i} className="card-item"> 
-                  <a
-                    href={`https://www.takaratomy.co.jp/products/wixoss/library/card/card_detail.php?card_no=${card["カード番号"]}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="cardname"
-                  >
-                    {card["カード名"]}<FiExternalLink style={{verticalAlign: "baseline",fontSize: 14, marginLeft: 4}}/>
-                  </a>
-                  <span
-                    style={{ marginLeft: 8, verticalAlign:"middle" }}
-                    onClick={() =>
-                      adjustDeck(
-                        card["カード名"],
-                        1,
-                        card["カード種類"],
-                        card["ライフバースト"]
-                      )
-                    }
-                    className="button button02"
-                  >
-                    +1
-                  </span>
-                  <span
-                    style={{ marginLeft: 4,verticalAlign:"middle" }}
-                    onClick={() =>
-                      adjustDeck(
-                        card["カード名"],
-                        +4,
-                        card["カード種類"],
-                        card["ライフバースト"]
-                      )
-                    }
-                    className="button button02"
-                  >
-                    +4
-                  </span>
-                <div className="attr" style={{ marginTop: "0.3em" }}>
-      <div className="row">
-        <div className="type"><strong>種類:</strong> {card["カード種類"]}</div>
-        <div className="color"><strong>色:</strong> {card["色"]}</div>
-        <div><strong>レベル:</strong> {card["レベル"]}</div>
-        <div><strong>コスト:</strong><span dangerouslySetInnerHTML={{
-            __html: (card["コスト"] || "").replace(/<br>/g, " "),
-          }}></span></div>
-        <div><strong>パワー:</strong> {card["パワー"]}</div>
-        <div><strong>タイプ:</strong><span dangerouslySetInnerHTML={{
-            __html: (card["カードタイプ"] || "").replace(/<br>/g, " "),
-          }}></span></div>
-
-        <div><strong>タイミング:</strong><span dangerouslySetInnerHTML={{
-            __html: (card["使用タイミング"] || "").replace(/<br>/g, " "),
-          }}></span></div>
-      </div>
-      <div className="LB">
-        <div><strong>LB:</strong> {card["ライフバースト"]}</div>
-      </div>
-      <div className="text">
-        <span
-          dangerouslySetInnerHTML={{
-            __html: (card["効果テキスト"] || "").replace(/\n/g, "<br>"),
-          }}
+      <div className={`container mobile-view-${mobileView}`}>
+        <div className="header-fixed">
+          <SearchPanel
+            query={query}
+            useRegex={useRegex}
+            searchFields={searchFields}
+          fieldLabels={fieldLabels}
+          filterOptions={filterOptions}
+          attributeFilters={attributeFilters}
+          onQueryChange={setQuery}
+          onSearch={handleSearch}
+          onKeyDown={handleKeyDown}
+          onUseRegexChange={setUseRegex}
+          onToggleField={toggleField}
+          onToggleAttributeFilter={toggleAttributeFilter}
+          onClearAttributeFilters={clearAttributeFilters}
+          deckFormat={deckFormat}
+          onDeckFormatChange={handleDeckFormatChange}
         />
-      </div>
-      </div>
-    </div>
-  ))}
-</div>
+        </div>
+
+        <DeckDrawer
+          minimized={isMobileLayout ? false : minimized}
+          allowCollapse={!isMobileLayout}
+          showActions={!isMobileLayout}
+          showMainDeck={showMainDeck}
+          deckEntries={deckEntries}
+          deckMain={deckMain}
+          deckLrig={deckLrig}
+          cards={cards}
+          totalCount={totalCount}
+          lbCount={lbCount}
+          deckFormat={deckFormat}
+          lrigDeckLimit={lrigDeckLimit}
+          onMinimizedChange={setMinimized}
+          onShowMainDeckChange={setShowMainDeck}
+          onAdjustDeck={adjustDeck}
+          onReorderDeck={reorderDeck}
+          onAddSaba={handleAddSaba}
+          onOpenPrint={() => setShowPrintModal(true)}
+          onOutput={handleOutputClick}
+          onOpenCardImages={createDeckCardImagePage}
+          onOpenImport={() => setShowImportModal(true)}
+          onClearDeck={handleClearDeck}
+        />
+
+      <CardResultList
+        cards={filtered}
+        total={filteredTotal}
+        loading={searchLoading}
+        deckFormat={deckFormat}
+        deckCounts={deckCounts}
+        canAddCard={canAddCardToDeck}
+        onAdjustDeck={adjustDeck}
+        onLoadMore={handleLoadMoreResults}
+      />
+
+      {cardsLoading && <div className="card-data-status">カードデータを読み込んでいます...</div>}
+      {cardsError && <div className="card-data-status card-data-error">{cardsError}</div>}
+
+      <MobileActionPanel
+        mainCount={mainCount}
+        lrigCount={lrigCount}
+        deckFormat={deckFormat}
+        lrigDeckLimit={lrigDeckLimit}
+        lbCount={getLifeBurstCount(deckMain)}
+        onAddSaba={handleAddSaba}
+        onOpenPrint={() => setShowPrintModal(true)}
+        onOutput={handleOutputClick}
+        onOpenCardImages={createDeckCardImagePage}
+        onOpenImport={() => setShowImportModal(true)}
+        onClearDeck={handleClearDeck}
+      />
+
+      <footer className="mobile-bottom-nav" aria-label="スマートフォン用フッター">
+        <button
+          type="button"
+          className={mobileView === "search" ? "mobile-nav-item mobile-nav-item-active" : "mobile-nav-item"}
+          onClick={() => switchMobileView("search")}
+        >
+          <span>検索</span>
+          <small>{filteredTotal}件</small>
+        </button>
+        <button
+          type="button"
+          className={mobileView === "deck" ? "mobile-nav-item mobile-nav-item-active" : "mobile-nav-item"}
+          onClick={() => switchMobileView("deck")}
+        >
+          <span>デッキ</span>
+          <small>{mainCount + lrigCount}枚</small>
+        </button>
+        <button
+          type="button"
+          className={mobileView === "actions" ? "mobile-nav-item mobile-nav-item-active" : "mobile-nav-item"}
+          onClick={() => switchMobileView("actions")}
+        >
+          <span>操作</span>
+          <small>出力</small>
+        </button>
+      </footer>
 
 
 {showModal && (
-  <div style={{
-    position: "fixed",
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1000
-  }}>
-    <div style={{
-      backgroundColor: "white",
-      padding: "20px",
-      borderRadius: "8px",
-      width: "80%",
-      maxWidth: "500px",
-      position: "relative"
-    }}>
-      <button onClick={() => setShowModal(false)} style={{
-        position: "absolute",
-        top: "10px",
-        right: "10px",
-        background: "none",
-        border: "none",
-        fontSize: "1.2em",
-        cursor: "pointer"
-      }}>×</button>
-      <h3>デッキ出力</h3>
-      <textarea
-        value={outputText}
-        readOnly
-        style={{ width: "100%", height: "300px", whiteSpace: "pre", fontFamily: "monospace" }}
-      />
-      <div style={{ marginTop: "10px", display: "flex", gap: "8px" }}>
-        <button
-          onClick={handleCopy}
-          style={{
-            padding: "6px 12px",
-            fontSize: "1em",
-            cursor: "pointer"
-          }}
-        >
-          コピー
-        </button>
-        <button
-          onClick={createDeckImage}
-          style={{
-            padding: "6px 12px",
-            fontSize: "1em",
-            cursor: "pointer"
-          }}
-          className="button button01"
-        >
-          画像作成
-        </button>
-      </div>
-    </div>
-  </div>
+  <OutputModal
+    outputText={outputText}
+    onClose={() => setShowModal(false)}
+    onCopy={handleCopy}
+    onCreateDeckImage={createDeckImage}
+  />
 )}
 
 {showPrintModal && (
-  <div style={{
-    position: "fixed",
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1000
-  }}>
-    <div style={{
-      backgroundColor: "white",
-      padding: "20px",
-      borderRadius: "8px",
-      width: "80%",
-      maxWidth: "500px",
-      position: "relative"
-    }}>
-      <button onClick={() => setShowPrintModal(false)} style={{
-        position: "absolute",
-        top: "10px",
-        right: "10px",
-        background: "none",
-        border: "none",
-        fontSize: "1.2em",
-        cursor: "pointer"
-      }}>×</button>
-      <h3>プリント設定</h3>
-      {Object.entries(templates).map(([key, path]) => (
-        <label key={key} style={{ display: "block", marginBottom: "4px" }}>
-          <input
-            type="radio"
-            name="template"
-            value={key}
-            checked={templateKey === key}
-            onChange={(e) => setTemplateKey(e.target.value)}
-          />
-          {key === "default" ? "デフォルトテンプレート" : `テンプレート ${key.toUpperCase()}`}
-        </label>
-      ))}
-      <button
-  onClick={handlePrintClick}
-  style={{
-    marginTop: "10px",
-    padding: "6px 12px",
-    fontSize: "1em",
-    cursor: "pointer"
-  }}
->
-  印刷
-</button>
-    </div>
-  </div>
+  <PrintModal
+    templates={templates}
+    templateKey={templateKey}
+    onTemplateChange={setTemplateKey}
+    onPrint={handlePrintClick}
+    onClose={() => setShowPrintModal(false)}
+  />
 )}
 
 {showImportModal && (
-  <div style={{
-    position: "fixed",
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1000
-  }}>
-    <div style={{
-      backgroundColor: "white",
-      padding: "20px",
-      borderRadius: "8px",
-      width: "80%",
-      maxWidth: "500px",
-      position: "relative"
-    }}>
-      <button onClick={() => setShowImportModal(false)} style={{
-        position: "absolute",
-        top: "10px",
-        right: "10px",
-        background: "none",
-        border: "none",
-        fontSize: "1.2em",
-        cursor: "pointer"
-      }}>×</button>
-      <h3>デッキインポート</h3>
-      <textarea
-        value={importText}
-        onChange={(e) => setImportText(e.target.value)}
-        placeholder="カード番号を1行ずつ貼り付けてください"
-        style={{ width: "100%", height: "300px", whiteSpace: "pre", fontFamily: "monospace" }}
-      />
-      <div style={{textAlign:"center"}}>
-      <button
-        onClick={() => {
-          const lines = importText
-            .split(/\r?\n/)
-            .map((line) => line.trim())
-            .filter(Boolean);
+  <ImportModal
+    importText={importText}
+    onImportTextChange={setImportText}
+    onImport={handleImportDeck}
+    onClose={() => setShowImportModal(false)}
+  />
+)}
 
-          const newMain = {};
-          const newLrig = {};
-
-          for (const cardNumber of lines) {
-            const card = cards.find((c) => c["カード番号"] === cardNumber);
-            if (!card) continue;
-
-            const name = card["カード名"];
-            const isLrig = isLrigCard(card["カード種類"]);
-
-            const target = isLrig ? newLrig : newMain;
-            const max = isLrig ? 1 : 4;
-            const prevCount = target[name]?.count || 0;
-            if (prevCount < max) {
-              target[name] = {
-                count: prevCount + 1,
-                ライフバースト: card["ライフバースト"],
-                カード種類: card["カード種類"]
-              };
-            }
-          }
-
-          setDeckMain(newMain);
-          setDeckLrig(newLrig);
-          setShowImportModal(false);
-        }}
-        style={{ marginTop: "10px", padding: "6px 12px", fontSize: "1em", cursor: "pointer" }}
-        className="button button01"
-      >
-        読み込み
-      </button>
-      </div>
-    </div>
-  </div>
+{importSummary && (
+  <ImportSummaryModal
+    summary={importSummary}
+    onClose={() => setImportSummary(null)}
+  />
 )}
 
 
