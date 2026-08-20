@@ -191,6 +191,7 @@ const filterCards = (
   const keywords = query.trim().split(/\s+/).filter(Boolean);
   const activeFields = Object.keys(searchFields).filter((key) => searchFields[key]);
   const selectedColors = filters["色"] || [];
+  const colorFilterMode = filters["色検索モード"] === "or" ? "or" : "and";
   const selectedTypes = filters["カード種類"] || [];
   const selectedLevels = filters["レベル"] || [];
   const selectedLifeBurst = (filters["ライフバースト"] || [])[0] || "";
@@ -215,7 +216,9 @@ const filterCards = (
     const matchingPrintings = getCardPrintings(groupedCard).filter(
       (card) =>
         isCardAllowedInFormat(card, deckFormat) &&
-        matchesAllSelectedValues(card, "色", selectedColors, (raw, value) => raw.includes(value)) &&
+        (colorFilterMode === "or"
+          ? matchesSelectedValues(card, "色", selectedColors, (raw, value) => raw.includes(value))
+          : matchesAllSelectedValues(card, "色", selectedColors, (raw, value) => raw.includes(value))) &&
         matchesSelectedValues(card, "カード種類", selectedTypes, (raw, value) => raw === value) &&
         matchesSelectedValues(card, "レベル", selectedLevels, (raw, value) => raw === value) &&
         matchesLifeBurstFilter(card, selectedLifeBurst) &&
