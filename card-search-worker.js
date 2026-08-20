@@ -31,6 +31,50 @@ const matchesAllSelectedValues = (card, field, selectedValues, matcher) => {
   return selectedValues.every((value) => matcher(raw, value));
 };
 
+const hasLifeBurst = (card) => {
+  const value = normalizeFilterValue(card?.["ライフバースト"] || "").normalize("NFKC");
+  return Boolean(value && value !== "-" && value !== "―");
+};
+
+const matchesLifeBurstFilter = (card, selectedValue) => {
+  if (!selectedValue) return true;
+  return selectedValue === "あり" ? hasLifeBurst(card) : !hasLifeBurst(card);
+};
+
+const normalizeTextConditionValue = (value = "") =>
+  value
+    .toString()
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]+>/g, "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/\s+/g, "");
+
+const matchesTextConditions = (card, conditions) =>
+  conditions.every(({ field, value }) => {
+    const needle = normalizeTextConditionValue(value);
+    if (!field || !needle) return true;
+
+    const values =
+      field === "カード名"
+        ? [
+            card["カード名"],
+            card["カード表示名"],
+            card["注記"],
+            card["カードの読み方"],
+          ]
+        : [card[field]];
+
+    const hiraganaNeedle = toHiragana(needle);
+    return values.some((candidate) => {
+      const normalizedCandidate = normalizeTextConditionValue(candidate || "");
+      return (
+        normalizedCandidate.includes(needle) ||
+        (field === "カード名" && toHiragana(normalizedCandidate).includes(hiraganaNeedle))
+      );
+    });
+  });
+
 const getCardDisplayName = (card) => card["カード表示名"] || card["カード名"] || "";
 const DECK_FORMAT_ALLSTAR = "allstar";
 const isCardAllowedInFormat = (card, deckFormat) =>
@@ -149,8 +193,16 @@ const filterCards = (
   const selectedColors = filters["色"] || [];
   const selectedTypes = filters["カード種類"] || [];
   const selectedLevels = filters["レベル"] || [];
+  const selectedLifeBurst = (filters["ライフバースト"] || [])[0] || "";
+  const textConditions = (filters["テキスト条件"] || []).filter(
+    (condition) => condition?.field && normalizeTextConditionValue(condition.value)
+  );
   const hasActiveFilters =
-    selectedColors.length > 0 || selectedTypes.length > 0 || selectedLevels.length > 0;
+    selectedColors.length > 0 ||
+    selectedTypes.length > 0 ||
+    selectedLevels.length > 0 ||
+    Boolean(selectedLifeBurst) ||
+    textConditions.length > 0;
 
   if ((keywords.length === 0 || activeFields.length === 0) && !hasActiveFilters) return [];
 
@@ -166,6 +218,8 @@ const filterCards = (
         matchesAllSelectedValues(card, "色", selectedColors, (raw, value) => raw.includes(value)) &&
         matchesSelectedValues(card, "カード種類", selectedTypes, (raw, value) => raw === value) &&
         matchesSelectedValues(card, "レベル", selectedLevels, (raw, value) => raw === value) &&
+        matchesLifeBurstFilter(card, selectedLifeBurst) &&
+        matchesTextConditions(card, textConditions) &&
         keywords.every((keyword) => {
           const normalizedKeyword = toHiragana(keyword.toLowerCase());
           let regex = null;

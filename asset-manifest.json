@@ -1,15 +1,15 @@
 {
   "files": {
-    "main.css": "/divadic.github.io/static/css/main.856fb82e.css",
-    "main.js": "/divadic.github.io/static/js/main.2f9e1864.js",
+    "main.css": "/divadic.github.io/static/css/main.a26ae809.css",
+    "main.js": "/divadic.github.io/static/js/main.ebbe6714.js",
     "static/js/453.65fcb515.chunk.js": "/divadic.github.io/static/js/453.65fcb515.chunk.js",
     "index.html": "/divadic.github.io/index.html",
-    "main.856fb82e.css.map": "/divadic.github.io/static/css/main.856fb82e.css.map",
-    "main.2f9e1864.js.map": "/divadic.github.io/static/js/main.2f9e1864.js.map",
+    "main.a26ae809.css.map": "/divadic.github.io/static/css/main.a26ae809.css.map",
+    "main.ebbe6714.js.map": "/divadic.github.io/static/js/main.ebbe6714.js.map",
     "453.65fcb515.chunk.js.map": "/divadic.github.io/static/js/453.65fcb515.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.856fb82e.css",
-    "static/js/main.2f9e1864.js"
+    "static/css/main.a26ae809.css",
+    "static/js/main.ebbe6714.js"
   ]
 }
