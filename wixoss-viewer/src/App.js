@@ -103,6 +103,7 @@ function App() {
   const templates = {
   Ceremony: "/images/template.png",
   WC2025: "/images/template_wc2025.png",
+  Team2026: "/images/template_team2026.png",
 };
 
   const fieldLabels = {
